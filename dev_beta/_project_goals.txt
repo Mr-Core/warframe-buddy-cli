@@ -1,0 +1,8 @@
+1. DONE - Fetch the page with requests.
+2. DONE - Parse it with BeautifulSoup.
+3. DONE - Create a dictionary where each section header (the <h3> text) is a key, and its associated drop data (from the <table> that follows it) is the value.
+4. DONE - Validate created dictionary.
+5. DONE - Implement searching of the dictionary.
+6. DONE - Saving and loading dictionary to and from file.
+7. Implement pulling data once per day, regardless how many times the app is started.
+8. 
