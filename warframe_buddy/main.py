@@ -9,11 +9,13 @@ def clear_screen():
 
 
 def main():
-    clear_screen()
-    
     from dependencies import check_dependencies
     if not check_dependencies():
         sys.exit(1)
+        
+    input('\nPress any key to continue...')
+    
+    clear_screen()
     
     print('=' * 60)
     print('WARFRAME DROP SEARCH ENGINE')
