@@ -100,6 +100,7 @@ Results:
 - [ ] Complete parser suite (enemies, bounties, syndicates, mods, etc.)
 - [ ] Add Flask web interface
 - [ ] Add Telegram bot integration
+- [ ] Refactor service manager for Linux deployment
 - [ ] Docker containerization
 - [ ] User favorites and history
 
