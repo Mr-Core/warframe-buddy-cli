@@ -75,9 +75,9 @@ README.md
 
 ### Installation
 ```bash
-git clone https://github.com/YOUR_USERNAME/warframe-buddy.git
+git clone https://github.com/Mr-Core/warframe-buddy.git
 cd warframe-buddy
-# Install dependencies if needed (requests, beautifulsoup4)
+python main.py
 ```
 
 ### Usage
