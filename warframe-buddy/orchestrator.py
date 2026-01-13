@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import json
 from datetime import datetime
 from collections import Counter
-from app.config import HTML_FILE, PARSED_DATA_FILE
+from config import HTML_FILE, PARSED_DATA_FILE
 
 
 class DropOrchestrator:
@@ -10,10 +10,10 @@ class DropOrchestrator:
     def __init__(self):
         self.soup = self.load_html(HTML_FILE)
         
-        from mission_parser import MissionDropParser
-        from relic_parser import RelicDropParser
-        from sortie_parser import SortieDropParser
-        from bounty_parser import ZarimanBountyDropParser
+        from parsers.mission_parser import MissionDropParser
+        from parsers.relic_parser import RelicDropParser
+        from parsers.sortie_parser import SortieDropParser
+        from parsers.bounty_parser import CetusBountyDropParser, ZarimanBountyDropParser
         
         self.mission_parser = MissionDropParser(self.soup)
         self.relic_parser = RelicDropParser(self.soup)

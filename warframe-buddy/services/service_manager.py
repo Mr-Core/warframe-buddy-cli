@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from search_engine import WarframeSearchEngine
 from orchestrator import DropOrchestrator
-from fetch_data import fetch_data
-from app.config import (
+from services.fetch_data import fetch_data
+from config import (
     DEVELOPMENT_MODE,
     HTML_FILE,
     PARSED_DATA_FILE,

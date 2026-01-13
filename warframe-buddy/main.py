@@ -1,5 +1,5 @@
 import os, sys
-from app.config import DEVELOPMENT_MODE
+from config import DEVELOPMENT_MODE
 from orchestrator import DropOrchestrator
 from search_engine import WarframeSearchEngine
 
@@ -9,11 +9,9 @@ def clear_screen():
 
 
 def main():
-    from dependencies import check_dependencies
+    from utils.dependencies import check_dependencies
     if not check_dependencies():
         sys.exit(1)
-        
-    input('\nPress any key to continue...')
     
     clear_screen()
     
@@ -47,7 +45,7 @@ def main():
         
         if not DEVELOPMENT_MODE:
             # Production: Ask to fetch new data
-            from fetch_data import fetch_data
+            from services.fetch_data import fetch_data
             fetch_new = input('\nFetch new data from web? (y/n): ').lower()
             if fetch_new == 'y':
                 print('\nFetching latest data...')

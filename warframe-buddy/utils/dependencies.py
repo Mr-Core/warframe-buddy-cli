@@ -16,7 +16,6 @@ def check_dependencies():
     for pkg, import_name in REQUIRED.items():
         try:
             importlib.import_module(import_name)
-            print(f"✓ {pkg} is installed")
         except ImportError:
             missing.append(pkg)
             print(f"✗ {pkg} is missing")
@@ -34,6 +33,7 @@ def check_dependencies():
                 except subprocess.CalledProcessError:
                     print(f"✗ Failed to install {pkg}")
                     return False
+            input('\nPress any key to continue...')
             return True
         else:
             print("Please install manually: pip install -r requirements.txt")

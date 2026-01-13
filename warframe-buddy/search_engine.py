@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from collections import defaultdict
-from app.config import INDEXED_DATA_FILE, PARSED_DATA_FILE
+from config import INDEXED_DATA_FILE, PARSED_DATA_FILE
 
 
 class WarframeSearchEngine:

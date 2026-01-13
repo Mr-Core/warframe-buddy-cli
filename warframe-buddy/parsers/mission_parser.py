@@ -1,4 +1,4 @@
-from base_parser import BaseDropParser
+from parsers.base_parser import BaseDropParser
 
 
 class MissionDropParser(BaseDropParser):
