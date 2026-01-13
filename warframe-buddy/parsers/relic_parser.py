@@ -15,6 +15,9 @@ class RelicDropParser(BaseDropParser):
     def parse(self):
         source_type, relics_table = self._parse_header('relicRewards')
         
+        if not source_type or not relics_table:
+            return [], None
+        
         for row in relics_table.find_all('tr'):
             th_cells = row.find_all('th')
             td_cells = row.find_all('td')

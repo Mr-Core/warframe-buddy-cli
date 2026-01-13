@@ -7,199 +7,264 @@ from config import HTML_FILE, PARSED_DATA_FILE
 
 class DropOrchestrator:
     """Orchestrator for parsing - NO SEARCH LOGIC"""
+
     def __init__(self):
         self.soup = self.load_html(HTML_FILE)
-        
+
         from parsers.mission_parser import MissionDropParser
         from parsers.relic_parser import RelicDropParser
         from parsers.sortie_parser import SortieDropParser
-        from parsers.bounty_parser import CetusBountyDropParser, ZarimanBountyDropParser
-        
+        from parsers.bounty_parser import (
+            CetusBountyDropParser,
+            ZarimanBountyDropParser,
+        )
+
         self.mission_parser = MissionDropParser(self.soup)
         self.relic_parser = RelicDropParser(self.soup)
         self.sortie_parser = SortieDropParser(self.soup)
+        self.cetus_bounty_parser = CetusBountyDropParser(self.soup)
         self.zariman_bounty_parser = ZarimanBountyDropParser(self.soup)
-        
+
         self.all_drops = []
         self.parsed_at = datetime.now()
-        
+
         # Store validation reports
         self.mission_report = None
         self.relic_report = None
         self.sortie_report = None
+        self.cetus_bounty_report = None
         self.zariman_bounty_report = None
-    
+
     def load_html(self, file_path):
         """Load HTML file"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return BeautifulSoup(f.read(), 'html.parser')
+            with open(file_path, "r", encoding="utf-8") as f:
+                return BeautifulSoup(f.read(), "html.parser")
         except FileNotFoundError:
             print(f'ERROR: HTML file "{file_path}" not found.')
-            print('Please fetch data first (run in Mode 1).')
+            print("Please fetch data first (run in Mode 1).")
             exit(1)
-    
+
     def parse_all(self):
         """Parse everything and store validation reports"""
-        print('Parsing missions...')
+        print("Parsing missions...")
         mission_drops, self.mission_report = self.mission_parser.parse()
-        
-        print('Parsing relics...')
+
+        print("Parsing relics...")
         relic_drops, self.relic_report = self.relic_parser.parse()
-        
-        print('Parsing sorties...')
+
+        print("Parsing sorties...")
         sortie_drops, self.sortie_report = self.sortie_parser.parse()
-        
-        print('Parsing bounties...')
-        print('  - Zariman bounty...')
-        zariman_bounty_drops, self.zariman_bounty_report = self.zariman_bounty_parser.parse()
-        
-        self.all_drops = mission_drops + relic_drops + sortie_drops + zariman_bounty_drops
-        
-        self._print_parse_summary(mission_drops, relic_drops, sortie_drops, zariman_bounty_drops)
-        
+
+        print("Parsing bounties...")
+        print("  - Cetus bounties...")
+        cetus_bounty_drops, self.cetus_bounty_report = self.cetus_bounty_parser.parse()
+        print("  - Zariman bounties...")
+        zariman_bounty_drops, self.zariman_bounty_report = (self.zariman_bounty_parser.parse())
+
+        self.all_drops = (
+            mission_drops
+            + relic_drops
+            + sortie_drops
+            + cetus_bounty_drops
+            + zariman_bounty_drops
+        )
+
+        self._print_parse_summary(
+            mission_drops,
+            relic_drops,
+            sortie_drops,
+            cetus_bounty_drops,
+            zariman_bounty_drops,
+        )
+
         return self.all_drops
-    
-    def _print_parse_summary(self, mission_drops, relic_drops, sortie_drops, zariman_bounty_drops):
+
+    def _print_parse_summary(
+        self,
+        mission_drops,
+        relic_drops,
+        sortie_drops,
+        cetus_bounty_drops,
+        zariman_bounty_drops,
+    ):
         """Print parsing summary"""
-        total_drops_len = len(mission_drops) + len(relic_drops) + len(sortie_drops) + len(zariman_bounty_drops)
-        
-        print(f'\nParse Complete:')
-        print(f'   Missions: {len(mission_drops)} drops')
-        print(f'   Relics: {len(relic_drops)} drops')
-        print(f'   Sorties: {len(sortie_drops)} drops')
-        print(f'   Zariman bounties: {len(zariman_bounty_drops)} drops')
-        print(f'   Total: {total_drops_len} drops')
-    
+        total_drops_len = (
+            len(mission_drops)
+            + len(relic_drops)
+            + len(sortie_drops)
+            + len(cetus_bounty_drops)
+            + len(zariman_bounty_drops)
+        )
+
+        print(f"\nParse Complete:")
+        print(f"   Missions: {len(mission_drops)} drops")
+        print(f"   Relics: {len(relic_drops)} drops")
+        print(f"   Sorties: {len(sortie_drops)} drops")
+        print(f"   Cetus bounties: {len(cetus_bounty_drops)} drops")
+        print(f"   Zariman bounties: {len(zariman_bounty_drops)} drops")
+        print(f"   Total: {total_drops_len} drops")
+
     def print_validation_summary(self):
         """
         PRESENT high-level overview - Quick summary for users
         Used by: Main flow to show 'is everything OK?'
         """
         report = self.get_validation_report()
-        overall = report['overall']
-        
-        print(f'\nVALIDATION SUMMARY:')
-        print(f'   Total drops: {overall['total_drops']}')
-        print(f'   Data integrity: {overall['data_integrity']:.1%}')
-        print(f'   Errors: {overall['error_count']}')
-        print(f'   Warnings: {overall['warning_count']}')
-        
-        if overall['error_count'] > 0:
-            print('   CRITICAL: Errors found in data!')
-    
+        overall = report["overall"]
+
+        print(f"\nVALIDATION SUMMARY:")
+        print(f"   Total drops: {overall['total_drops']}")
+        print(f"   Data integrity: {overall['data_integrity']:.1%}")
+        print(f"   Errors: {overall['error_count']}")
+        print(f"   Warnings: {overall['warning_count']}")
+
+        if overall["error_count"] > 0:
+            print("   CRITICAL: Errors found in data!")
+
     def get_validation_report(self):
         """
         Get comprehensive validation report for ALL data
         Uses the reports already generated by parsers
         """
         reports = {}
-        
+
         # Use the reports already generated during parsing
-        reports['missions'] = self.mission_report
-        reports['relics'] = self.relic_report
-        reports['sorties'] = self.sortie_report
-        reports['zariman_bounty'] = self.zariman_bounty_report
-        
+        reports["missions"] = self.mission_report
+        reports["relics"] = self.relic_report
+        reports["sorties"] = self.sortie_report
+        reports['cetus_bounty'] = self.cetus_bounty_report
+        reports["zariman_bounty"] = self.zariman_bounty_report
+
         # Calculate overall stats based on ACTUAL data being used
         total_drops = len(self.all_drops)
-        
+
         # Count errors across all parsers
         all_errors = []
         all_warnings = []
-        
+
         if self.mission_report:
-            all_errors.extend(self.mission_report.get('errors', []))
-            all_warnings.extend(self.mission_report.get('warnings', []))
-        
+            all_errors.extend(self.mission_report.get("errors", []))
+            all_warnings.extend(self.mission_report.get("warnings", []))
+
         if self.relic_report:
-            all_errors.extend(self.relic_report.get('errors', []))
-            all_warnings.extend(self.relic_report.get('warnings', []))
-        
+            all_errors.extend(self.relic_report.get("errors", []))
+            all_warnings.extend(self.relic_report.get("warnings", []))
+
         if self.sortie_report:
-            all_errors.extend(self.sortie_report.get('errors', []))
-            all_warnings.extend(self.sortie_report.get('warnings', []))
-        
+            all_errors.extend(self.sortie_report.get("errors", []))
+            all_warnings.extend(self.sortie_report.get("warnings", []))
+            
+        if self.cetus_bounty_report:
+            all_errors.extend(self.cetus_bounty_report.get("errors", []))
+            all_warnings.extend(self.cetus_bounty_report.get("warnings", []))
+
         if self.zariman_bounty_report:
-            all_errors.extend(self.zariman_bounty_report.get('errors', []))
-            all_warnings.extend(self.zariman_bounty_report.get('warnings', []))
-        
+            all_errors.extend(self.zariman_bounty_report.get("errors", []))
+            all_warnings.extend(self.zariman_bounty_report.get("warnings", []))
+
         # Group issues by type for easy fixing
-        error_types = Counter(e['reason'] for e in all_errors)
-        warning_types = Counter(w['reason'] for w in all_warnings)
-        
-        reports['overall'] = {
-            'total_drops': total_drops,
-            'error_count': len(all_errors),
-            'warning_count': len(all_warnings),
-            'data_integrity': (total_drops - len(all_errors)) / total_drops if total_drops > 0 else 0,
-            'errors_by_type': dict(error_types),
-            'warnings_by_type': dict(warning_types)
+        error_types = Counter(e["reason"] for e in all_errors)
+        warning_types = Counter(w["reason"] for w in all_warnings)
+
+        reports["overall"] = {
+            "total_drops": total_drops,
+            "error_count": len(all_errors),
+            "warning_count": len(all_warnings),
+            "data_integrity": (
+                (total_drops - len(all_errors)) / total_drops if total_drops > 0 else 0
+            ),
+            "errors_by_type": dict(error_types),
+            "warnings_by_type": dict(warning_types),
         }
-        
+
         return reports
-    
+
     def print_validation_details(self, max_errors=10):
         """
         PRESENT details - For debugging/fixing
         Used by: When you need to see WHAT'S wrong
         """
         report = self.get_validation_report()
-        
-        print('\n' + '='*60)
-        print('DETAILED VALIDATION REPORT')
-        print('='*60)
-        
+
+        print("\n" + "=" * 60)
+        print("DETAILED VALIDATION REPORT")
+        print("=" * 60)
+
         # Show mission errors
-        if report['missions'] and report['missions']['errors']:
-            print('\nMISSION ERRORS:')
-            for error in report['missions']['errors'][:max_errors]:
-                print(f'  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}')
-            if len(report['missions']['errors']) > max_errors:
-                print(f'  ... and {len(report['missions']['errors']) - max_errors} more')
-        
+        if report["missions"] and report["missions"]["errors"]:
+            print("\nMISSION ERRORS:")
+            for error in report["missions"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["missions"]["errors"]) > max_errors:
+                print(
+                    f"  ... and {len(report['missions']['errors']) - max_errors} more"
+                )
+
         # Show relic errors
-        if report['relics'] and report['relics']['errors']:
-            print('\nRELIC ERRORS:')
-            for error in report['relics']['errors'][:max_errors]:
-                print(f'  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}')
-            if len(report['relics']['errors']) > max_errors:
-                print(f'  ... and {len(report['relics']['errors']) - max_errors} more')
-        
+        if report["relics"] and report["relics"]["errors"]:
+            print("\nRELIC ERRORS:")
+            for error in report["relics"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["relics"]["errors"]) > max_errors:
+                print(f"  ... and {len(report['relics']['errors']) - max_errors} more")
+
         # Show sortie errors
-        if report['sorties'] and report['sorties']['errors']:
-            print('\nSORTIE ERRORS:')
-            for error in report['sorties']['errors'][:max_errors]:
-                print(f'  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}')
-            if len(report['sorties']['errors']) > max_errors:
-                print(f'  ... and {len(report['sorties']['errors']) - max_errors} more')
+        if report["sorties"] and report["sorties"]["errors"]:
+            print("\nSORTIE ERRORS:")
+            for error in report["sorties"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["sorties"]["errors"]) > max_errors:
+                print(f"  ... and {len(report['sorties']['errors']) - max_errors} more")
         
+        # Show cetus bounty errors
+        if report["cetus_bounty"] and report["cetus_bounty"]["errors"]:
+            print("\nCETUS BOUNTY ERRORS:")
+            for error in report["cetus_bounty"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["cetus_bounty"]["errors"]) > max_errors:
+                print(
+                    f"  ... and {len(report['cetus_bounty']['errors']) - max_errors} more"
+                )
+
         # Show zariman bounty errors
-        if report['zariman_bounty'] and report['zariman_bounty']['errors']:
-            print('\nZARIMAN BOUNTY ERRORS:')
-            for error in report['zariman_bounty']['errors'][:max_errors]:
-                print(f'  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}')
-            if len(report['zariman_bounty']['errors']) > max_errors:
-                print(f'  ... and {len(report['zariman_bounty']['errors']) - max_errors} more')
-        
+        if report["zariman_bounty"] and report["zariman_bounty"]["errors"]:
+            print("\nZARIMAN BOUNTY ERRORS:")
+            for error in report["zariman_bounty"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["zariman_bounty"]["errors"]) > max_errors:
+                print(
+                    f"  ... and {len(report['zariman_bounty']['errors']) - max_errors} more"
+                )
+
         # Show warnings summary
-        total_warnings = report['overall']['warning_count']
+        total_warnings = report["overall"]["warning_count"]
         if total_warnings > 0:
-            print(f'\nWARNINGS: {total_warnings} total')
-            for warning_type, count in report['overall']['warnings_by_type'].items():
-                print(f'  - {warning_type}: {count}')
-        
-        print('='*60)
-    
+            print(f"\nWARNINGS: {total_warnings} total")
+            for warning_type, count in report["overall"]["warnings_by_type"].items():
+                print(f"  - {warning_type}: {count}")
+
+        print("=" * 60)
+
     def save_parsed_data(self):
         """Save parsed data to file"""
         data = {
-            'source': 'WarframeDropOrchestrator',
-            'parsed_at': self.parsed_at.isoformat(),
-            'drops': self.all_drops
+            "source": "WarframeDropOrchestrator",
+            "parsed_at": self.parsed_at.isoformat(),
+            "drops": self.all_drops,
         }
-        
-        with open(PARSED_DATA_FILE, 'w') as f:
+
+        with open(PARSED_DATA_FILE, "w") as f:
             json.dump(data, f, indent=2)
-        
-        print(f'\nSaved {len(self.all_drops)} drops to {PARSED_DATA_FILE}')
+
+        print(f"\nSaved {len(self.all_drops)} drops to {PARSED_DATA_FILE}")

@@ -13,6 +13,9 @@ class SortieDropParser(BaseDropParser):
     def parse(self):
         source_type, sorties_table = self._parse_header('sortieRewards')
 
+        if not source_type or not sorties_table:
+            return [], None
+        
         for row in sorties_table.find_all('tr'):
             th_cells = row.find_all('th')
             td_cells = row.find_all('td')

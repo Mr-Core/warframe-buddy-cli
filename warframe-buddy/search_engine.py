@@ -76,7 +76,6 @@ class WarframeSearchEngine:
             elif source_type == 'Bounties':
                 self.search_indexes['item_bounties'][item].append(drop)
 
-        
         self.last_rebuild = datetime.now()
         
         print(f'✓ Indexed {len(all_drops)} drops')
@@ -290,6 +289,7 @@ class WarframeSearchEngine:
                     summary['missions'].append({
                         'planet': drop.get('planet_name'),
                         'mission': drop.get('mission_name'),
+                        'descriptor': drop.get('mission_descriptor'),
                         'chance': drop.get('chance'),
                         'rarity': drop.get('rarity'),
                         'rotation': drop.get('rotation')
@@ -298,6 +298,7 @@ class WarframeSearchEngine:
                     summary['missions'].append({
                         'planet': drop.get('planet_name'),
                         'mission': drop.get('mission_name'),
+                        'descriptor': drop.get('mission_descriptor'),
                         'chance': drop.get('chance'),
                         'rarity': drop.get('rarity')
                     })
@@ -315,13 +316,25 @@ class WarframeSearchEngine:
                     'rarity': drop.get('rarity')
                 })
             elif drop['source_type'] == 'Bounties':
-                summary['bounties'].append({
-                    'planet': drop.get('planet_name'),
-                    'mission': drop.get('mission_name'),
-                    'chance': drop.get('chance'),
-                    'rarity': drop.get('rarity'),
-                    'rotation': drop.get('rotation')
-                })
+                if 'stage' in drop:
+                    summary['bounties'].append({
+                        'planet': drop.get('planet_name'),
+                        'mission': drop.get('mission_name'),
+                        'descriptor': drop.get('mission_descriptor'),
+                        'chance': drop.get('chance'),
+                        'rarity': drop.get('rarity'),
+                        'rotation': drop.get('rotation'),
+                        'stage': drop.get('stage')
+                    })
+                else:
+                    summary['bounties'].append({
+                        'planet': drop.get('planet_name'),
+                        'mission': drop.get('mission_name'),
+                        'descriptor': drop.get('mission_descriptor'),
+                        'chance': drop.get('chance'),
+                        'rarity': drop.get('rarity'),
+                        'rotation': drop.get('rotation')
+                    })
             
             if drop.get('chance', 0) > summary['best_chance']:
                 summary['best_chance'] = drop.get('chance', 0)

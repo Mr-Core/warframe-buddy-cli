@@ -8,14 +8,14 @@ class CetusBountyDropParser(BaseDropParser):
         self.cetus_bounty_drops = []
         self.current_mission_descriptor = None
         self.current_mission_rotation = None
-
-    # Stopped here...
-    # TODO 1. Remove Cetus and push Zariman to GitHub
-    # TODO 2. Finish Cetus parsing logic
+        self.current_mission_stage = None
     
     def parse(self):
         source_type, cetus_bounty_table = self._parse_header('cetusRewards')
         source_type = 'Bounties'
+        
+        if not cetus_bounty_table:
+            return [], None
 
         for row in cetus_bounty_table.find_all('tr'):
             th_cells = row.find_all('th')
@@ -26,7 +26,22 @@ class CetusBountyDropParser(BaseDropParser):
             # -------------------------
             if th_cells:
                 text = th_cells[0].text.strip()
-                self.current_mission_name = self.normalize_text(text)
+                lowered = text.lower()
+                
+                # ---- Mission descriptor header ----
+                if lowered.startswith('level'):
+                    self.current_mission_descriptor = self.normalize_text(text)
+                    continue
+                
+                # ---- Rotation header ----
+                if lowered.startswith('rotation'):
+                    self.current_mission_rotation = self.normalize_text(text.split()[-1])
+                    continue
+                
+                # ---- Stage header ----
+                if lowered.startswith('stage'):
+                    self.current_mission_stage = self.normalize_text(text)
+                    continue
             
             # -------------------------
             # DROP ROWS
@@ -47,10 +62,11 @@ class CetusBountyDropParser(BaseDropParser):
                     'mission_descriptor': self.current_mission_descriptor,
                     'rarity': rarity,
                     'chance': chance_number,
-                    'rotation': self.current_mission_rotation
+                    'rotation': self.current_mission_rotation,
+                    'stage': self.current_mission_stage,
                 }
                 
-                self.cetus_bounty_drops_bounty_drops.append(drop)
+                self.cetus_bounty_drops.append(drop)
         
         report = self.verify_data(self.cetus_bounty_drops)
         
@@ -68,6 +84,9 @@ class ZarimanBountyDropParser(BaseDropParser):
     def parse(self):
         source_type, zariman_bounty_table = self._parse_header('zarimanRewards')
         source_type = 'Bounties'
+        
+        if not zariman_bounty_table:
+            return [], None
 
         for row in zariman_bounty_table.find_all('tr'):
             th_cells = row.find_all('th')
@@ -95,8 +114,8 @@ class ZarimanBountyDropParser(BaseDropParser):
                 drop = {
                     'item': item_name,
                     'source_type': source_type,
-                    'planet_name': 'Zariman Ten Zero',
-                    'mission_name': 'Zariman',
+                    'planet_name': 'Zariman',
+                    'mission_name': 'Chrysalith',
                     'mission_descriptor': self.current_mission_descriptor,
                     'rarity': rarity,
                     'chance': chance_number,
