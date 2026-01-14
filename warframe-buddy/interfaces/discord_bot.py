@@ -1,6 +1,7 @@
+import sys, os
 import discord
 from discord.ext import commands
-import sys, os
+import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -140,17 +141,18 @@ class WarframeBuddyDiscordBot:
         @self.bot.command(name='helpme', help='Show all commands')
         async def helpme(ctx):
             """Custom help command"""
-            help_text = f"""
-            **Warframe Buddy Bot Commands:**
+            help_text = textwrap.dedent(f"""\
+                **Warframe Buddy Bot Commands:**
+                
+                `{COMMAND_PREFIX}search <item>` - Search for item drop locations
+                `{COMMAND_PREFIX}best <item>` - Show best farming spot for item
+                `{COMMAND_PREFIX}load` - Load search indexes (required first)
+                `{COMMAND_PREFIX}status` - Check bot status
+                `{COMMAND_PREFIX}helpme` - Show this help
+                
+                **Example:** `{COMMAND_PREFIX}search Mesa Prime Blueprint`
+            """)
             
-            `{COMMAND_PREFIX}search <item>` - Search for item drop locations
-            `{COMMAND_PREFIX}best <item>` - Show best farming spot for item
-            `{COMMAND_PREFIX}load` - Load search indexes (required first)
-            `{COMMAND_PREFIX}status` - Check bot status
-            `{COMMAND_PREFIX}helpme` - Show this help
-            
-            **Example:** `!search "Mesa Prime Neuroptics"`
-            """
             await ctx.send(help_text)
         
         @self.bot.command(name='hi')
@@ -162,8 +164,15 @@ class WarframeBuddyDiscordBot:
         async def on_ready():
             """Called when bot connects"""
             print(f'✅ Discord bot logged in as {self.bot.user}')
+            
+            # Set helpful status
+            await self.bot.change_presence(
+                activity=discord.Game(name=f'{COMMAND_PREFIX}helpme')
+            )
+            
             print(f'✅ Bot is in {len(self.bot.guilds)} servers')
-
+            print(f'✅ Status set to: "{COMMAND_PREFIX}helpme"')
+            
             # Try to auto-load search engine
             try:
                 self.search_engine = WarframeSearchEngine()
