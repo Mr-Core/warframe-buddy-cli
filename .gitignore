@@ -5,14 +5,17 @@ __pycache__/
 _indexing_demo_tests/
 _testing/
 
-# Data files
-data/
-
 # Old and obsolete code
 _dev_alpha/
 
+# Art files
+_art/
+
 # List of available/created parsers
 _parsers.txt
+
+# Data files
+data/
 
 # .env files
 .env
