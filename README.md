@@ -28,6 +28,7 @@ A Python-based tool for parsing, validating, and searching Warframe drop tables 
 
 ```
 warframe-buddy/
+├── .env.example
 ├── main.py
 ├── config.py
 ├── orchestrator.py
@@ -35,7 +36,8 @@ warframe-buddy/
 │
 ├── interfaces/
 │   ├── __init__.py
-│   └── cli.py
+│   ├── cli.py
+│   └── discord_bot.py
 │
 ├── parsers/
 │   ├── __init__.py

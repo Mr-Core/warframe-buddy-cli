@@ -1,6 +1,7 @@
 import sys, os
 import discord
 from discord.ext import commands
+import asyncio
 import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -25,27 +26,84 @@ class WarframeBuddyDiscordBot:
         """Register all bot commands"""
         
         @self.bot.command(name='search', help='Search for item drop locations')
-        async def search(ctx, *, item_name: str):
+        async def search(ctx, *, search_query: str):
             """Search for an item"""
-            if not item_name:
-                await ctx.send(f'❌ Please specify an item: `{COMMAND_PREFIX}search "Forma Blueprint"`')
+            if not search_query:
+                await ctx.send(f'❌ Please specify an item: `{COMMAND_PREFIX}search "forma"`')
                 return
             
             async with ctx.typing():
                 if not self.search_engine:
-                    await ctx.send(f'⚠️ Search engine not loaded. Use "{COMMAND_PREFIX}load first.')
+                    await ctx.send(f'⚠️ Search engine not loaded. Use `{COMMAND_PREFIX}load` first.')
                     return
                 
-                results = self.search_engine.search_item(item_name)
-
-                if not results:
-                    await ctx.send(f'❌ No drops found for "{item_name}"')
+                # Get all items from index
+                all_items = list(self.search_engine.search_indexes['item_sources'].keys())
+                search_lower = search_query.lower()
+                
+                # Find partial matches
+                matching_items = [
+                    item for item in all_items 
+                    if search_lower in item.lower()
+                ]
+                
+                if not matching_items:
+                    await ctx.send(f'❌ No items found matching **"{search_query}"**')
                     return
+                
+                # If multiple matches, let user choose
+                if len(matching_items) > 1:
+                    # Create selection menu (limited to 15 items for Discord limits)
+                    display_items = matching_items[:15]
+                    
+                    selection_text = f"🔍 Found **{len(matching_items)}** matching items:\n"
+                    for i, item in enumerate(display_items, 1):
+                        selection_text += f"{i}. {item}\n"
+                    
+                    if len(matching_items) > 15:
+                        selection_text += f"\n... and {len(matching_items) - 15} more"
+                    
+                    selection_text += f"\n\nReply with a number (1-{len(display_items)}) or `all`"
+                    
+                    await ctx.send(selection_text)
+                    
+                    # Wait for user's choice
+                    def check(m):
+                        return m.author == ctx.author and m.channel == ctx.channel
+                    
+                    try:
+                        msg = await self.bot.wait_for('message', timeout=30.0, check=check)
+                        
+                        if msg.content.lower() == 'all':
+                            # Search all matching items
+                            results = []
+                            for item in matching_items:
+                                results.extend(self.search_engine.search_item(item))
+                            selected_item = f"{len(matching_items)} matching items"
+                        elif msg.content.isdigit():
+                            idx = int(msg.content) - 1
+                            if 0 <= idx < len(display_items):
+                                selected_item = display_items[idx]
+                                results = self.search_engine.search_item(selected_item)
+                            else:
+                                await ctx.send("❌ Invalid selection!")
+                                return
+                        else:
+                            await ctx.send("❌ Please reply with a number or 'all'")
+                            return
+                            
+                    except asyncio.TimeoutError:
+                        await ctx.send("⏰ Selection timed out!")
+                        return
+                else:
+                    # Single match
+                    selected_item = matching_items[0]
+                    results = self.search_engine.search_item(selected_item)
                 
                 # Limit to top 5 results for Discord message limits
                 display_results = results[:5]
 
-                response = f'🔍 **{item_name}** - Found {len(results)} drops(s)\n'
+                response = f'🔍 **{selected_item}** - Found {len(results)} drops(s)\n'
                 response += '```\n'
                 
                 for i, drop in enumerate(display_results, 1):
@@ -73,23 +131,23 @@ class WarframeBuddyDiscordBot:
                 await ctx.send(response)
 
         @self.bot.command(name='best', help='Show best farming locations for an item')
-        async def best(ctx, *, item_name: str):
+        async def best(ctx, *, search_query: str):
             """Show best drop locations"""
             async with ctx.typing():
                 if not self.search_engine:
                     await ctx.send(f'⚠️ Search engine not loaded. Use "{COMMAND_PREFIX}load first.')
                     return
                 
-                summary = self.search_engine.get_item_summary(item_name)
+                summary = self.search_engine.get_item_summary(search_query)
 
                 if summary['total_sources'] == 0:
-                    await ctx.send(f'❌ No drops found for **{item_name}**')
+                    await ctx.send(f'❌ No drops found for **{search_query}**')
                     return
                 
                 best_source = summary['best_source']
                 best_chance = summary['best_chance'] * 100
                 
-                response = f'**{item_name}** - Best farming spot:\n'
+                response = f'**{search_query}** - Best farming spot:\n'
                 response += f'**{best_chance:.1f}%** chance from '
 
                 if best_source['source_type'] == 'Missions':
