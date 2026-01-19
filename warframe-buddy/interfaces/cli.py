@@ -333,10 +333,11 @@ def display_results(results, item_name, filter):
                 print(f'     Refinement: {drop['relic_refinement']}')
             
             if drop['source_type'] == 'Bounties':
-                print(f'     Type: {drop['mission_type']}')
-                print(f'     Rotation: {drop['rotation']}')
-                if drop.get('stage'):
-                    print(f'     Stage: {drop['stage']}')
+                print(f'     Bounty name: {drop['bounty_name']}')
+                print(f'     Bounty level: {drop['bounty_level']}')
+                if drop.get('rotation'):
+                    print(f'     Rotation: {drop['rotation']}')
+                print(f'     Stage: {drop['stage']}')
             
             print(f'     Chance: {chance:.1%} ({rarity})')
             
@@ -383,17 +384,17 @@ def display_summary(summary):
             print(f'      Relic: {best.get('relic_tier')} {best.get('relic_name')} {best.get('relic_refinement')}')
         
         elif best['source_type'] == 'Bounties':
-            if 'stage' in best:
-                print(f'   Location: {best.get('planet_name')} / {best.get('mission_name')} / {best.get('mission_type')} / Rotation {best.get('rotation')} / {best.get('stage')}')
+            if 'rotation' in best:
+                print(f'   Location: {best.get('planet_name')} / {best.get('mission_name')} / {best.get('bounty_name')} / {best.get('bounty_level')} / Rotation {best.get('rotation')} / {best.get('stage')}')
             else:
-                print(f'   Location: {best.get('planet_name')} / {best.get('mission_name')} / {best.get('mission_type')} / Rotation: {best.get('rotation')}')
+                print(f'   Location: {best.get('planet_name')} / {best.get('mission_name')} / {best.get('bounty_name')} / {best.get('bounty_level')} / {best.get('stage')}')
     
     print('-' * 80)
     
     print('\nBreakdown legend:')
     print('  - Missions: Planet / Mission name / Mission type / Rotation -> Drop chance')
     print('  - Relics: Relic tier / Relic name / Relic refinement -> Drop chance')
-    print('  - Bounties: Planet / Mission name / Bounty name / Rotation / Stage -> Drop chance')
+    print('  - Bounties: Planet / Mission name / Bounty name / Bounty level / Rotation / Stage -> Drop chance')
     
     print('-' * 80)
     
@@ -425,10 +426,10 @@ def display_summary(summary):
     if summary['bounties']:
         print(f'\nBounties ({len(summary['bounties'])} sources):')
         for bounty in summary['bounties'][:10]:
-            if bounty.get('stage'):
-                print(f'  • {bounty['planet']} / {bounty['mission']} / {bounty['type']} / Rotation {bounty['rotation']} / {bounty['stage']} -> {bounty['chance']:.1%}')
+            if bounty.get('rotation'):
+                print(f'  • {bounty['planet']} / {bounty['mission']} / {bounty['name']} / {bounty['level']} / Rotation {bounty['rotation']} / {bounty['stage']} -> {bounty['chance']:.1%}')
             else:
-                print(f'  • {bounty['planet']} / {bounty['mission']} / {bounty['type']} / Rotation: {bounty['rotation']} -> {bounty['chance']:.1%}')
+                print(f'  • {bounty['planet']} / {bounty['mission']} / {bounty['name']} / {bounty['level']} / {bounty['stage']} -> {bounty['chance']:.1%}')
         if len(summary['bounties']) > 10:
             print(f'  ... and {len(summary['bounties']) - 10} more')
     

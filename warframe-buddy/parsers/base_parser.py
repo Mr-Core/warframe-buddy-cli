@@ -226,29 +226,29 @@ class BaseDropParser:
                     errors.append(error)
             
             if drop['source_type'] == 'Bounties':
-                if drop['mission_type'] is None:
-                    counters['missing_bounty_mission_type'] = counters.get('missing_bounty_mission_type', 0) + 1
+                if drop['bounty_name'] is None:
+                    counters['missing_bounty_name'] = counters.get('missing_bounty_name', 0) + 1
                     # Hard error, create errors report
                     error = {
                         'index': index,
                         'item': drop['item'],
                         'source_type': drop['source_type'],
-                        'reason': 'Missing bounty mission descriptor'
+                        'reason': 'Missing bounty name'
                     }
                     errors.append(error)
                 
-                if drop['rotation'] is None:
-                    counters['missing_bounty_rotation'] = counters.get('missing_bounty_rotation', 0) + 1
+                if drop['bounty_level'] is None:
+                    counters['missing_bounty_level'] = counters.get('missing_bounty_level', 0) + 1
                     # Hard error, create errors report
                     error = {
                         'index': index,
                         'item': drop['item'],
                         'source_type': drop['source_type'],
-                        'reason': 'Missing bounty rotation'
+                        'reason': 'Missing bounty level'
                     }
                     errors.append(error)
                 
-                if 'stage' in drop and drop['stage'] is None:
+                if drop['stage'] is None:
                     counters['missing_bounty_stage'] = counters.get('missing_bounty_stage', 0) + 1
                     # Hard error, create errors report
                     error = {
@@ -256,6 +256,17 @@ class BaseDropParser:
                         'item': drop['item'],
                         'source_type': drop['source_type'],
                         'reason': 'Missing bounty stage'
+                    }
+                    errors.append(error)
+                
+                if 'rotation' in drop and drop['rotation'] is None:
+                    counters['missing_bounty_rotation'] = counters.get('missing_bounty_rotation', 0) + 1
+                    # Hard error, create errors report
+                    error = {
+                        'index': index,
+                        'item': drop['item'],
+                        'source_type': drop['source_type'],
+                        'reason': 'Missing bounty rotation'
                     }
                     errors.append(error)
         

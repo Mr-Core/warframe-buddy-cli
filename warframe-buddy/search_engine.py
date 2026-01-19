@@ -316,11 +316,12 @@ class WarframeSearchEngine:
                     'rarity': drop.get('rarity')
                 })
             elif drop['source_type'] == 'Bounties':
-                if 'stage' in drop:
+                if 'rotation' in drop:
                     summary['bounties'].append({
                         'planet': drop.get('planet_name'),
                         'mission': drop.get('mission_name'),
-                        'type': drop.get('mission_type'),
+                        'name': drop.get('bounty_name'),
+                        'level': drop.get('bounty_level'),
                         'chance': drop.get('chance'),
                         'rarity': drop.get('rarity'),
                         'rotation': drop.get('rotation'),
@@ -330,10 +331,11 @@ class WarframeSearchEngine:
                     summary['bounties'].append({
                         'planet': drop.get('planet_name'),
                         'mission': drop.get('mission_name'),
-                        'type': drop.get('mission_type'),
+                        'name': drop.get('bounty_name'),
+                        'level': drop.get('bounty_level'),
                         'chance': drop.get('chance'),
                         'rarity': drop.get('rarity'),
-                        'rotation': drop.get('rotation')
+                        'stage': drop.get('stage')
                     })
             
             if drop.get('chance', 0) > summary['best_chance']:

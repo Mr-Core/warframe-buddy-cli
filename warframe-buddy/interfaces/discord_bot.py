@@ -300,11 +300,12 @@ class WarframeBuddyDiscordBot:
         results_text += f"\nPage {page + 1} of {total_pages}\n"
         results_text += "```"
         
-        if len(grouped) > 1:
+        source_type = list(grouped.keys())[0]
+        if len(grouped) == 1 and len(grouped[source_type]) <= 5:  # If 5 or fewer results
+            footer_text = '\nEnd of search.'
+        else:
             footer_text = "\nFilter: " + " | ".join(filter_options)
             footer_text += "\n\nNavigation: ◀️ ▶️ Turn pages • ❌ End search"
-        else:
-            footer_text = '\nEnd of search.'
             
         results_text += footer_text
         
@@ -339,6 +340,9 @@ class WarframeBuddyDiscordBot:
         @self.bot.command(name='best', help='Show best farming locations for an item')
         async def best(ctx, *, search_query: str = None):
             """Show best drop locations"""
+            # Currently useless, ?search shows all necessary info 
+            # TODO Refactor to real-time strategic guidance
+            
             if not search_query:
                 await ctx.send(f'❌ Please specify an item: `{COMMAND_PREFIX}best "forma"`')
                 return
@@ -432,13 +436,6 @@ class WarframeBuddyDiscordBot:
         async def greeting(ctx):
             """Simple greeting to the user"""
             await ctx.send('Hello! 😊')
-        
-        @self.bot.command(name='test')
-        async def msgtest(ctx):
-            msg = textwrap.dedent("""
-                test
-            """)
-            await ctx.send(msg)
         
         @self.bot.event
         async def on_ready():

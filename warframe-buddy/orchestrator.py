@@ -6,7 +6,7 @@ from config import HTML_FILE, PARSED_DATA_FILE
 
 
 class DropOrchestrator:
-    """Orchestrator for parsing - NO SEARCH LOGIC"""
+    """Orchestrator for parsing"""
 
     def __init__(self):
         self.soup = self.load_html(HTML_FILE)
@@ -16,6 +16,7 @@ class DropOrchestrator:
         from parsers.sortie_parser import SortieDropParser
         from parsers.bounty_parser import (
             CetusBountyDropParser,
+            OrbVallisBountyDropParser,
             ZarimanBountyDropParser,
         )
 
@@ -23,6 +24,7 @@ class DropOrchestrator:
         self.relic_parser = RelicDropParser(self.soup)
         self.sortie_parser = SortieDropParser(self.soup)
         self.cetus_bounty_parser = CetusBountyDropParser(self.soup)
+        self.orb_vallis_bounty_parser = OrbVallisBountyDropParser(self.soup)
         self.zariman_bounty_parser = ZarimanBountyDropParser(self.soup)
 
         self.all_drops = []
@@ -33,6 +35,7 @@ class DropOrchestrator:
         self.relic_report = None
         self.sortie_report = None
         self.cetus_bounty_report = None
+        self.orb_vallis_bounty_report = None
         self.zariman_bounty_report = None
 
     def load_html(self, file_path):
@@ -59,6 +62,8 @@ class DropOrchestrator:
         print("Parsing bounties...")
         print("  - Cetus bounties...")
         cetus_bounty_drops, self.cetus_bounty_report = self.cetus_bounty_parser.parse()
+        print("  - Orb Vallis bounties...")
+        orb_vallis_bounty_drops, self.orb_vallis_bounty_report = self.orb_vallis_bounty_parser.parse()
         print("  - Zariman bounties...")
         zariman_bounty_drops, self.zariman_bounty_report = (self.zariman_bounty_parser.parse())
 
@@ -67,6 +72,7 @@ class DropOrchestrator:
             + relic_drops
             + sortie_drops
             + cetus_bounty_drops
+            + orb_vallis_bounty_drops
             + zariman_bounty_drops
         )
 
@@ -75,6 +81,7 @@ class DropOrchestrator:
             relic_drops,
             sortie_drops,
             cetus_bounty_drops,
+            orb_vallis_bounty_drops,
             zariman_bounty_drops,
         )
 
@@ -86,6 +93,7 @@ class DropOrchestrator:
         relic_drops,
         sortie_drops,
         cetus_bounty_drops,
+        orb_vallis_bounty_drops,
         zariman_bounty_drops,
     ):
         """Print parsing summary"""
@@ -94,6 +102,7 @@ class DropOrchestrator:
             + len(relic_drops)
             + len(sortie_drops)
             + len(cetus_bounty_drops)
+            + len(orb_vallis_bounty_drops)
             + len(zariman_bounty_drops)
         )
 
@@ -102,6 +111,7 @@ class DropOrchestrator:
         print(f"   Relics: {len(relic_drops)} drops")
         print(f"   Sorties: {len(sortie_drops)} drops")
         print(f"   Cetus bounties: {len(cetus_bounty_drops)} drops")
+        print(f"   Orb Vallis bounties: {len(orb_vallis_bounty_drops)} drops")
         print(f"   Zariman bounties: {len(zariman_bounty_drops)} drops")
         print(f"   Total: {total_drops_len} drops")
 
@@ -134,6 +144,7 @@ class DropOrchestrator:
         reports["relics"] = self.relic_report
         reports["sorties"] = self.sortie_report
         reports['cetus_bounty'] = self.cetus_bounty_report
+        reports['orb_vallis_bounty'] = self.orb_vallis_bounty_report
         reports["zariman_bounty"] = self.zariman_bounty_report
 
         # Calculate overall stats based on ACTUAL data being used
@@ -158,6 +169,10 @@ class DropOrchestrator:
         if self.cetus_bounty_report:
             all_errors.extend(self.cetus_bounty_report.get("errors", []))
             all_warnings.extend(self.cetus_bounty_report.get("warnings", []))
+        
+        if self.orb_vallis_bounty_report:
+            all_errors.extend(self.orb_vallis_bounty_report.get("errors", []))
+            all_warnings.extend(self.orb_vallis_bounty_report.get("warnings", []))
 
         if self.zariman_bounty_report:
             all_errors.extend(self.zariman_bounty_report.get("errors", []))
@@ -235,6 +250,18 @@ class DropOrchestrator:
                     f"  ... and {len(report['cetus_bounty']['errors']) - max_errors} more"
                 )
 
+        # Show orb vallis bounty errors
+        if report["orb_vallis_bounty"] and report["orb_vallis_bounty"]["errors"]:
+            print("\nCETUS BOUNTY ERRORS:")
+            for error in report["orb_vallis_bounty"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["orb_vallis_bounty"]["errors"]) > max_errors:
+                print(
+                    f"  ... and {len(report['orb_vallis_bounty']['errors']) - max_errors} more"
+                )
+        
         # Show zariman bounty errors
         if report["zariman_bounty"] and report["zariman_bounty"]["errors"]:
             print("\nZARIMAN BOUNTY ERRORS:")
