@@ -194,51 +194,7 @@ class WarframeSearchEngine:
         if not self.search_indexes:
             raise ValueError('No indexes loaded.')
         
-        # Get base results
-        if source_type == 'missions':
-            results = self.search_indexes['item_missions'].get(item_name, [])
-            
-            planet = filters.get('planet')
-            if planet:
-                key = f'{item_name}::{planet}'
-                results = self.search_indexes['mission_planets'].get(key, [])
-            
-            mission_mode = filters.get('mission_mode')
-            if mission_mode:
-                results = [d for d in results 
-                          if d.get('mission_mode') == mission_mode]
-        
-        elif source_type == 'relics':
-            results = self.search_indexes['item_relics'].get(item_name, [])
-            
-            tier = filters.get('tier')
-            if tier:
-                key = f'{item_name}::{tier}'
-                results = self.search_indexes['relic_tiers'].get(key, [])
-            
-            relic_name = filters.get('relic_name')
-            if relic_name:
-                results = [d for d in results 
-                          if d.get('relic_name') == relic_name]
-            
-            refinement = filters.get('refinement')
-            if refinement:
-                results = [d for d in results 
-                          if d.get('relic_refinement') == refinement]
-        
-        elif source_type == 'sorties':
-            results = self.search_indexes['item_sorties'].get(item_name, [])
-        
-        elif source_type == 'bounties':
-            results = self.search_indexes['item_bounties'].get(item_name, [])
-            
-            planet = filters.get('planet')
-            if planet:
-                key = f'{item_name}::{planet}'
-                results = self.search_indexes['bountie_planets'].get(key, [])
-        
-        else:  # Search everywhere
-            results = self.search_indexes['item_sources'].get(item_name, [])
+        results = self.search_indexes['item_sources'].get(item_name, [])
         
         # Apply chance filters
         min_chance = filters.get('min_chance')
