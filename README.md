@@ -77,7 +77,7 @@ README.md
 | Orb Vallis Bounty Rewards | ✅ | |
 | Cambion Drift Bounty Rewards | ✅ | |
 | Zariman Bounty Rewards | ✅ | |
-| Albrecht's Laboratories Bounty Rewards | 📋 | |
+| Albrecht's Laboratories Bounty Rewards | ✅ | |
 | Hex Bounty Rewards | 📋 | |
 | Mod Drops by Source | 📋 | |
 | Mod Drops by Mod | 📋 | |
