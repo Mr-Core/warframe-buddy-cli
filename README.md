@@ -64,6 +64,31 @@ README.md
 .gitignore
 ```
 
+## Parser Implementation Status
+
+| Parser/Data Type | Status | Notes |
+|------------------|--------|-------|
+| Missions | ✅ | |
+| Relics | ✅ | |
+| Keys | ❌ | Quest-related items, not farmable |
+| Dynamic Location Rewards | 📋 | |
+| Sorties | ✅ | |
+| Cetus Bounty Rewards | ✅ | |
+| Orb Vallis Bounty Rewards | ✅ | |
+| Cambion Drift Bounty Rewards | ✅ | |
+| Zariman Bounty Rewards | ✅ | |
+| Albrecht's Laboratories Bounty Rewards | 📋 | |
+| Hex Bounty Rewards | 📋 | |
+| Mod Drops by Source | 📋 | |
+| Mod Drops by Mod | 📋 | |
+| Blueprint/Part Drops by Source | 📋 | |
+| Blueprint/Part Drops by Item | 📋 | |
+| Resource Drops by Source | 📋 | |
+| Sigil Drops by Source | 📋 | |
+| Additional Item Drops by Source | 📋 | |
+
+✅ = Implemented • ❌ = Skipped (intentionally excluded) • 📋 = Planned
+
 ## Data Flow
 
 1. **Fetch**: Download latest HTML drop tables from Warframe
