@@ -30,6 +30,7 @@ class WarframeSearchEngine:
             'item_relics': defaultdict(list),
             'item_sorties': defaultdict(list),
             'item_bounties': defaultdict(list),
+            'item_transient': defaultdict(list),
             'mission_planets': defaultdict(list),
             'relic_tiers': defaultdict(list),
             'bountie_planets': defaultdict(list),
@@ -75,6 +76,9 @@ class WarframeSearchEngine:
             
             elif source_type == 'Bounties':
                 self.search_indexes['item_bounties'][item].append(drop)
+            
+            elif source_type == 'Dynamic Location Rewards':
+                self.search_indexes['item_transient'][item].append(drop)
 
         self.last_rebuild = datetime.now()
         
