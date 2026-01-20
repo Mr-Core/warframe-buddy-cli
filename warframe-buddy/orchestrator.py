@@ -17,6 +17,7 @@ class DropOrchestrator:
         from parsers.bounty_parser import (
             CetusBountyDropParser,
             OrbVallisBountyDropParser,
+            CambionDriftBountyDropParser,
             ZarimanBountyDropParser,
         )
 
@@ -25,6 +26,7 @@ class DropOrchestrator:
         self.sortie_parser = SortieDropParser(self.soup)
         self.cetus_bounty_parser = CetusBountyDropParser(self.soup)
         self.orb_vallis_bounty_parser = OrbVallisBountyDropParser(self.soup)
+        self.cambion_drift_bounty_parser = CambionDriftBountyDropParser(self.soup)
         self.zariman_bounty_parser = ZarimanBountyDropParser(self.soup)
 
         self.all_drops = []
@@ -36,6 +38,7 @@ class DropOrchestrator:
         self.sortie_report = None
         self.cetus_bounty_report = None
         self.orb_vallis_bounty_report = None
+        self.cambion_drift_bounty_report = None
         self.zariman_bounty_report = None
 
     def load_html(self, file_path):
@@ -64,6 +67,8 @@ class DropOrchestrator:
         cetus_bounty_drops, self.cetus_bounty_report = self.cetus_bounty_parser.parse()
         print("  - Orb Vallis bounties...")
         orb_vallis_bounty_drops, self.orb_vallis_bounty_report = self.orb_vallis_bounty_parser.parse()
+        print("  - Cambion Drift bounties...")
+        cambion_drift_bounty_drops, self.cambion_drift_bounty_report = self.cambion_drift_bounty_parser.parse()
         print("  - Zariman bounties...")
         zariman_bounty_drops, self.zariman_bounty_report = (self.zariman_bounty_parser.parse())
 
@@ -73,6 +78,7 @@ class DropOrchestrator:
             + sortie_drops
             + cetus_bounty_drops
             + orb_vallis_bounty_drops
+            + cambion_drift_bounty_drops
             + zariman_bounty_drops
         )
 
@@ -82,6 +88,7 @@ class DropOrchestrator:
             sortie_drops,
             cetus_bounty_drops,
             orb_vallis_bounty_drops,
+            cambion_drift_bounty_drops,
             zariman_bounty_drops,
         )
 
@@ -94,6 +101,7 @@ class DropOrchestrator:
         sortie_drops,
         cetus_bounty_drops,
         orb_vallis_bounty_drops,
+        cambion_drift_bounty_drops,
         zariman_bounty_drops,
     ):
         """Print parsing summary"""
@@ -103,6 +111,7 @@ class DropOrchestrator:
             + len(sortie_drops)
             + len(cetus_bounty_drops)
             + len(orb_vallis_bounty_drops)
+            + len(cambion_drift_bounty_drops)
             + len(zariman_bounty_drops)
         )
 
@@ -112,6 +121,7 @@ class DropOrchestrator:
         print(f"   Sorties: {len(sortie_drops)} drops")
         print(f"   Cetus bounties: {len(cetus_bounty_drops)} drops")
         print(f"   Orb Vallis bounties: {len(orb_vallis_bounty_drops)} drops")
+        print(f"   Cambion Drift bounties: {len(cambion_drift_bounty_drops)} drops")
         print(f"   Zariman bounties: {len(zariman_bounty_drops)} drops")
         print(f"   Total: {total_drops_len} drops")
 
@@ -145,6 +155,7 @@ class DropOrchestrator:
         reports["sorties"] = self.sortie_report
         reports['cetus_bounty'] = self.cetus_bounty_report
         reports['orb_vallis_bounty'] = self.orb_vallis_bounty_report
+        reports['cambion_drift_bounty'] = self.cambion_drift_bounty_report
         reports["zariman_bounty"] = self.zariman_bounty_report
 
         # Calculate overall stats based on ACTUAL data being used
@@ -174,6 +185,10 @@ class DropOrchestrator:
             all_errors.extend(self.orb_vallis_bounty_report.get("errors", []))
             all_warnings.extend(self.orb_vallis_bounty_report.get("warnings", []))
 
+        if self.cambion_drift_bounty_report:
+            all_errors.extend(self.cambion_drift_bounty_report.get("errors", []))
+            all_warnings.extend(self.cambion_drift_bounty_report.get("warnings", []))
+        
         if self.zariman_bounty_report:
             all_errors.extend(self.zariman_bounty_report.get("errors", []))
             all_warnings.extend(self.zariman_bounty_report.get("warnings", []))
@@ -260,6 +275,18 @@ class DropOrchestrator:
             if len(report["orb_vallis_bounty"]["errors"]) > max_errors:
                 print(
                     f"  ... and {len(report['orb_vallis_bounty']['errors']) - max_errors} more"
+                )
+        
+        # Show cambion drift bounty errors
+        if report["cambion_drift_bounty"] and report["cambion_drift_bounty"]["errors"]:
+            print("\nCAMBION DRIFT BOUNTY ERRORS:")
+            for error in report["cambion_drift_bounty"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["cambion_drift_bounty"]["errors"]) > max_errors:
+                print(
+                    f"  ... and {len(report['cambion_drift_bounty']['errors']) - max_errors} more"
                 )
         
         # Show zariman bounty errors
