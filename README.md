@@ -78,7 +78,7 @@ README.md
 | Cambion Drift Bounty Rewards | ✅ | |
 | Zariman Bounty Rewards | ✅ | |
 | Albrecht's Laboratories Bounty Rewards | ✅ | |
-| Hex Bounty Rewards | 📋 | |
+| Hex Bounty Rewards | ✅ | |
 | Mod Drops by Source | 📋 | |
 | Mod Drops by Mod | 📋 | |
 | Blueprint/Part Drops by Source | 📋 | |
