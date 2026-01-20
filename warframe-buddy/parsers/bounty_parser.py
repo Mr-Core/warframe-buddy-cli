@@ -85,25 +85,26 @@ class CetusBountyDropParser(BaseDropParser):
         
         return self.cetus_bounty_drops, report
 
-class OrbVallisBountyDropParser(BaseDropParser):
+
+class SolarisBountyDropParser(BaseDropParser):  # Orb Vallis
     def __init__(self, soup):
         super().__init__(soup)
         
-        self.orb_vallis_bounty_drops = []
+        self.solaris_bounty_drops = []
         
-        self.orb_vallis_bounty_name = None
-        self.orb_vallis_bounty_level = None
-        self.orb_vallis_bounty_rotation = None
-        self.orb_vallis_bounty_stage = None
+        self.solaris_bounty_name = None
+        self.solaris_bounty_level = None
+        self.solaris_bounty_rotation = None
+        self.solaris_bounty_stage = None
     
     def parse(self):
-        source_type, orb_vallis_bounty_table = self._parse_header('solarisRewards')
+        source_type, solaris_bounty_table = self._parse_header('solarisRewards')
         source_type = 'Bounties'
         
-        if not orb_vallis_bounty_table:
+        if not solaris_bounty_table:
             return [], None
 
-        for row in orb_vallis_bounty_table.find_all('tr'):
+        for row in solaris_bounty_table.find_all('tr'):
             th_cells = row.find_all('th')
             td_cells = row.find_all('td')
 
@@ -122,19 +123,19 @@ class OrbVallisBountyDropParser(BaseDropParser):
                         bounty_name = match.group(2).strip()
                         bounty_level = match.group(1).strip()
                         
-                        self.orb_vallis_bounty_name = self.normalize_text(bounty_name)
-                        self.orb_vallis_bounty_level = self.normalize_text(bounty_level)
+                        self.solaris_bounty_name = self.normalize_text(bounty_name)
+                        self.solaris_bounty_level = self.normalize_text(bounty_level)
                     
                     continue
                 
                 # ---- Rotation header ----
                 if lowered.startswith('rotation'):
-                    self.orb_vallis_bounty_rotation = self.normalize_text(text.split()[-1])
+                    self.solaris_bounty_rotation = self.normalize_text(text.split()[-1])
                     continue
                 
                 # ---- Stage header ----
                 if lowered.startswith('stage') or lowered.startswith('final'):
-                    self.orb_vallis_bounty_stage = self.normalize_text(text)
+                    self.solaris_bounty_stage = self.normalize_text(text)
                     continue
             
             # -------------------------
@@ -153,39 +154,40 @@ class OrbVallisBountyDropParser(BaseDropParser):
                     'source_type': source_type,
                     'planet_name': 'Venus',
                     'mission_name': 'Fortuna',
-                    'bounty_name': self.orb_vallis_bounty_name,
-                    'bounty_level': self.orb_vallis_bounty_level,
+                    'bounty_name': self.solaris_bounty_name,
+                    'bounty_level': self.solaris_bounty_level,
                     'rarity': rarity,
                     'chance': chance_number,
-                    'rotation': self.orb_vallis_bounty_rotation,
-                    'stage': self.orb_vallis_bounty_stage,
+                    'rotation': self.solaris_bounty_rotation,
+                    'stage': self.solaris_bounty_stage,
                 }
                 
-                self.orb_vallis_bounty_drops.append(drop)
+                self.solaris_bounty_drops.append(drop)
         
-        report = self.verify_data(self.orb_vallis_bounty_drops)
+        report = self.verify_data(self.solaris_bounty_drops)
         
-        return self.orb_vallis_bounty_drops, report
+        return self.solaris_bounty_drops, report
 
-class CambionDriftBountyDropParser(BaseDropParser):
+
+class DeimosBountyDropParser(BaseDropParser):  # Cambion Drift
     def __init__(self, soup):
         super().__init__(soup)
         
-        self.cambion_drift_bounty_drops = []
+        self.deimos_bounty_drops = []
         
-        self.cambion_drift_bounty_name = None
-        self.cambion_drift_bounty_level = None
-        self.cambion_drift_bounty_rotation = None
-        self.cambion_drift_bounty_stage = None
+        self.deimos_bounty_name = None
+        self.deimos_bounty_level = None
+        self.deimos_bounty_rotation = None
+        self.deimos_bounty_stage = None
     
     def parse(self):
-        source_type, cambion_drift_bounty_table = self._parse_header('deimosRewards')
+        source_type, deimos_bounty_table = self._parse_header('deimosRewards')
         source_type = 'Bounties'
         
-        if not cambion_drift_bounty_table:
+        if not deimos_bounty_table:
             return [], None
 
-        for row in cambion_drift_bounty_table.find_all('tr'):
+        for row in deimos_bounty_table.find_all('tr'):
             th_cells = row.find_all('th')
             td_cells = row.find_all('td')
 
@@ -204,19 +206,19 @@ class CambionDriftBountyDropParser(BaseDropParser):
                         bounty_name = match.group(2).strip()
                         bounty_level = match.group(1).strip()
                         
-                        self.cambion_drift_bounty_name = self.normalize_text(bounty_name)
-                        self.cambion_drift_bounty_level = self.normalize_text(bounty_level)
+                        self.deimos_bounty_name = self.normalize_text(bounty_name)
+                        self.deimos_bounty_level = self.normalize_text(bounty_level)
                     
                     continue
                 
                 # ---- Rotation header ----
                 if lowered.startswith('rotation'):
-                    self.cambion_drift_bounty_rotation = self.normalize_text(text.split()[-1])
+                    self.deimos_bounty_rotation = self.normalize_text(text.split()[-1])
                     continue
                 
                 # ---- Stage header ----
                 if lowered.startswith('stage') or lowered.startswith('final'):
-                    self.cambion_drift_bounty_stage = self.normalize_text(text)
+                    self.deimos_bounty_stage = self.normalize_text(text)
                     continue
             
             # -------------------------
@@ -235,19 +237,20 @@ class CambionDriftBountyDropParser(BaseDropParser):
                     'source_type': source_type,
                     'planet_name': 'Deimos',
                     'mission_name': 'Necralisk',
-                    'bounty_name': self.cambion_drift_bounty_name,
-                    'bounty_level': self.cambion_drift_bounty_level,
+                    'bounty_name': self.deimos_bounty_name,
+                    'bounty_level': self.deimos_bounty_level,
                     'rarity': rarity,
                     'chance': chance_number,
-                    'rotation': self.cambion_drift_bounty_rotation,
-                    'stage': self.cambion_drift_bounty_stage,
+                    'rotation': self.deimos_bounty_rotation,
+                    'stage': self.deimos_bounty_stage,
                 }
                 
-                self.cambion_drift_bounty_drops.append(drop)
+                self.deimos_bounty_drops.append(drop)
         
-        report = self.verify_data(self.cambion_drift_bounty_drops)
+        report = self.verify_data(self.deimos_bounty_drops)
         
-        return self.cambion_drift_bounty_drops, report
+        return self.deimos_bounty_drops, report
+
 
 class ZarimanBountyDropParser(BaseDropParser):
     """Inherited parser class for Zariman Bounty drops"""
@@ -344,3 +347,4 @@ class ZarimanBountyDropParser(BaseDropParser):
         report = self.verify_data(self.zariman_bounty_drops)
         
         return self.zariman_bounty_drops, report
+
