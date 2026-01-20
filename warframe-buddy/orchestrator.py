@@ -20,6 +20,7 @@ class DropOrchestrator:
             DeimosBountyDropParser,  # Cambion Drift
             ZarimanBountyDropParser,
             EntratiLabDropParser,  # Albrecht's Laboratories
+            HexBountyDropParser,
         )
 
         self.mission_parser = MissionDropParser(self.soup)
@@ -30,6 +31,7 @@ class DropOrchestrator:
         self.deimos_bounty_parser = DeimosBountyDropParser(self.soup)
         self.zariman_bounty_parser = ZarimanBountyDropParser(self.soup)
         self.entrati_lab_bounty_parser = EntratiLabDropParser(self.soup)
+        self.hex_bounty_parser = HexBountyDropParser(self.soup)
 
         self.all_drops = []
         self.parsed_at = datetime.now()
@@ -43,6 +45,7 @@ class DropOrchestrator:
         self.deimos_bounty_report = None
         self.zariman_bounty_report = None
         self.entrati_lab_bounty_report = None
+        self.hex_bounty_report = None
 
     def load_html(self, file_path):
         """Load HTML file"""
@@ -76,6 +79,8 @@ class DropOrchestrator:
         zariman_bounty_drops, self.zariman_bounty_report = (self.zariman_bounty_parser.parse())
         print("  - Albrecht's Laboratories bounties...")
         entrati_lab_bounty_drops, self.entrati_lab_bounty_report = (self.entrati_lab_bounty_parser.parse())
+        print("  - Hex bounties...")
+        hex_bounty_drops, self.hex_bounty_report = self.hex_bounty_parser.parse()
 
         self.all_drops = (
             mission_drops
@@ -86,6 +91,7 @@ class DropOrchestrator:
             + deimos_bounty_drops
             + zariman_bounty_drops
             + entrati_lab_bounty_drops
+            + hex_bounty_drops
         )
 
         self._print_parse_summary(
@@ -97,6 +103,7 @@ class DropOrchestrator:
             deimos_bounty_drops,
             zariman_bounty_drops,
             entrati_lab_bounty_drops,
+            hex_bounty_drops,
         )
 
         return self.all_drops
@@ -111,6 +118,7 @@ class DropOrchestrator:
         deimos_bounty_drops,
         zariman_bounty_drops,
         entrati_lab_bounty_drops,
+        hex_bounty_drops,
     ):
         """Print parsing summary"""
         total_drops_len = (
@@ -122,6 +130,7 @@ class DropOrchestrator:
             + len(deimos_bounty_drops)
             + len(zariman_bounty_drops)
             + len(entrati_lab_bounty_drops)
+            + len(hex_bounty_drops)
         )
 
         print(f"\nParse Complete:")
@@ -133,6 +142,7 @@ class DropOrchestrator:
         print(f"   Cambion Drift bounties: {len(deimos_bounty_drops)} drops")
         print(f"   Zariman bounties: {len(zariman_bounty_drops)} drops")
         print(f"   Albrecht's Laboratories bounties: {len(entrati_lab_bounty_drops)} drops")
+        print(f"   Hex bounties: {len(hex_bounty_drops)} drops")
         print(f"   Total: {total_drops_len} drops")
 
     def print_validation_summary(self):
@@ -168,6 +178,7 @@ class DropOrchestrator:
         reports['deimos_bounty'] = self.deimos_bounty_report
         reports['zariman_bounty'] = self.zariman_bounty_report
         reports['entrati_lab_bounty'] = self.entrati_lab_bounty_report
+        reports['hex_bounty'] = self.hex_bounty_report
 
         # Calculate overall stats based on ACTUAL data being used
         total_drops = len(self.all_drops)
@@ -207,6 +218,10 @@ class DropOrchestrator:
         if self.entrati_lab_bounty_report:
             all_errors.extend(self.entrati_lab_bounty_report.get("errors", []))
             all_warnings.extend(self.entrati_lab_bounty_report.get("warnings", []))
+        
+        if self.hex_bounty_report:
+            all_errors.extend(self.hex_bounty_report.get("errors", []))
+            all_warnings.extend(self.hex_bounty_report.get("warnings", []))
 
         # Group issues by type for easy fixing
         error_types = Counter(e["reason"] for e in all_errors)
@@ -326,6 +341,18 @@ class DropOrchestrator:
             if len(report["entrati_lab_bounty"]["errors"]) > max_errors:
                 print(
                     f"  ... and {len(report['entrati_lab_bounty']['errors']) - max_errors} more"
+                )
+        
+        # Show hex bounty errors
+        if report["hex_bounty"] and report["hex_bounty"]["errors"]:
+            print("\nHEX BOUNTY ERRORS:")
+            for error in report["hex_bounty"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["hex_bounty"]["errors"]) > max_errors:
+                print(
+                    f"  ... and {len(report['hex_bounty']['errors']) - max_errors} more"
                 )
 
         # Show warnings summary

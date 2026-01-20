@@ -443,3 +443,98 @@ class EntratiLabDropParser(BaseDropParser):  # Albrecht's Laboratories
         
         return self.entrati_lab_bounty_drops, report
 
+
+class HexBountyDropParser(BaseDropParser):
+    def __init__(self, soup):
+        super().__init__(soup)
+        
+        self.hex_bounty_drops = []
+        
+        self.hex_bounty_name = None
+        self.hex_bounty_level = None
+        self.hex_bounty_rotation = None
+        self.hex_bounty_stage = None
+    
+    def parse(self):
+        source_type, hex_bounty_table = self._parse_header('hexRewards')
+        source_type = 'Bounties'
+        
+        if not hex_bounty_table:
+            return [], None
+
+        for row in hex_bounty_table.find_all('tr'):
+            th_cells = row.find_all('th')
+            td_cells = row.find_all('td')
+
+            # -------------------------
+            # CONTEXT ROWS (headers)
+            # -------------------------
+            if th_cells:
+                text = th_cells[0].text.strip()
+                lowered = text.lower()
+                
+                # ---- Bounty name and level header ----
+                if lowered.startswith('level'):
+                    match = re.match(r'(Level\s+[\d\s\-]+)\s+(.*)', text)
+                    
+                    if match:
+                        bounty_name = match.group(2).strip()
+                        bounty_level = match.group(1).strip()
+                        
+                        self.hex_bounty_name = self.normalize_text(bounty_name)
+                        self.hex_bounty_level = self.normalize_text(bounty_level)
+                    
+                    continue
+                
+                # ---- Rotation header ----
+                if lowered.startswith('rotation'):
+                    self.hex_bounty_rotation = self.normalize_text(text.split()[-1])
+                    continue
+                
+                # ---- Stage header ----
+                if lowered.startswith('stage') or lowered.startswith('final'):
+                    self.hex_bounty_stage = self.normalize_text(text)
+                    continue
+            
+            # -------------------------
+            # DROP ROWS
+            # -------------------------
+            elif len(td_cells) >= 3:
+                item_name = td_cells[1].text
+                item_name = self.normalize_text(item_name)
+
+                chance_text = td_cells[2].text.strip()
+                
+                rarity, chance_number = self._parse_chance_text(chance_text)
+
+                if self.hex_bounty_rotation:
+                    drop = {
+                        'item': item_name,
+                        'source_type': source_type,
+                        'planet_name': 'Höllvania',  # TODO needs checking in game
+                        'mission_name': 'Höllvania Central Mall',  # TODO needs checking in game
+                        'bounty_name': self.hex_bounty_name,
+                        'bounty_level': self.hex_bounty_level,
+                        'rarity': rarity,
+                        'chance': chance_number,
+                        'rotation': self.hex_bounty_rotation,
+                        'stage': self.hex_bounty_stage,
+                    }
+                else:
+                    drop = {
+                        'item': item_name,
+                        'source_type': source_type,
+                        'planet_name': 'Höllvania',  # TODO needs checking in game
+                        'mission_name': 'Höllvania Central Mall',  # TODO needs checking in game
+                        'bounty_name': self.hex_bounty_name,
+                        'bounty_level': self.hex_bounty_level,
+                        'rarity': rarity,
+                        'chance': chance_number,
+                        'stage': self.hex_bounty_stage,
+                    }
+                
+                self.hex_bounty_drops.append(drop)
+        
+        report = self.verify_data(self.hex_bounty_drops)
+        
+        return self.hex_bounty_drops, report
