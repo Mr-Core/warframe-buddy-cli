@@ -19,6 +19,7 @@ class DropOrchestrator:
             SolarisBountyDropParser,  # Orb Vallis
             DeimosBountyDropParser,  # Cambion Drift
             ZarimanBountyDropParser,
+            EntratiLabDropParser,  # Albrecht's Laboratories
         )
 
         self.mission_parser = MissionDropParser(self.soup)
@@ -28,6 +29,7 @@ class DropOrchestrator:
         self.solaris_bounty_parser = SolarisBountyDropParser(self.soup)
         self.deimos_bounty_parser = DeimosBountyDropParser(self.soup)
         self.zariman_bounty_parser = ZarimanBountyDropParser(self.soup)
+        self.entrati_lab_bounty_parser = EntratiLabDropParser(self.soup)
 
         self.all_drops = []
         self.parsed_at = datetime.now()
@@ -40,6 +42,7 @@ class DropOrchestrator:
         self.solaris_bounty_report = None
         self.deimos_bounty_report = None
         self.zariman_bounty_report = None
+        self.entrati_lab_bounty_report = None
 
     def load_html(self, file_path):
         """Load HTML file"""
@@ -71,6 +74,8 @@ class DropOrchestrator:
         deimos_bounty_drops, self.deimos_bounty_report = self.deimos_bounty_parser.parse()
         print("  - Zariman bounties...")
         zariman_bounty_drops, self.zariman_bounty_report = (self.zariman_bounty_parser.parse())
+        print("  - Albrecht's Laboratories bounties...")
+        entrati_lab_bounty_drops, self.entrati_lab_bounty_report = (self.entrati_lab_bounty_parser.parse())
 
         self.all_drops = (
             mission_drops
@@ -80,6 +85,7 @@ class DropOrchestrator:
             + solaris_bounty_drops
             + deimos_bounty_drops
             + zariman_bounty_drops
+            + entrati_lab_bounty_drops
         )
 
         self._print_parse_summary(
@@ -90,6 +96,7 @@ class DropOrchestrator:
             solaris_bounty_drops,
             deimos_bounty_drops,
             zariman_bounty_drops,
+            entrati_lab_bounty_drops,
         )
 
         return self.all_drops
@@ -103,6 +110,7 @@ class DropOrchestrator:
         solaris_bounty_drops,
         deimos_bounty_drops,
         zariman_bounty_drops,
+        entrati_lab_bounty_drops,
     ):
         """Print parsing summary"""
         total_drops_len = (
@@ -113,6 +121,7 @@ class DropOrchestrator:
             + len(solaris_bounty_drops)
             + len(deimos_bounty_drops)
             + len(zariman_bounty_drops)
+            + len(entrati_lab_bounty_drops)
         )
 
         print(f"\nParse Complete:")
@@ -123,6 +132,7 @@ class DropOrchestrator:
         print(f"   Orb Vallis bounties: {len(solaris_bounty_drops)} drops")
         print(f"   Cambion Drift bounties: {len(deimos_bounty_drops)} drops")
         print(f"   Zariman bounties: {len(zariman_bounty_drops)} drops")
+        print(f"   Albrecht's Laboratories bounties: {len(entrati_lab_bounty_drops)} drops")
         print(f"   Total: {total_drops_len} drops")
 
     def print_validation_summary(self):
@@ -150,13 +160,14 @@ class DropOrchestrator:
         reports = {}
 
         # Use the reports already generated during parsing
-        reports["missions"] = self.mission_report
-        reports["relics"] = self.relic_report
-        reports["sorties"] = self.sortie_report
+        reports['missions'] = self.mission_report
+        reports['relics'] = self.relic_report
+        reports['sorties'] = self.sortie_report
         reports['cetus_bounty'] = self.cetus_bounty_report
         reports['solaris_bounty'] = self.solaris_bounty_report
         reports['deimos_bounty'] = self.deimos_bounty_report
-        reports["zariman_bounty"] = self.zariman_bounty_report
+        reports['zariman_bounty'] = self.zariman_bounty_report
+        reports['entrati_lab_bounty'] = self.entrati_lab_bounty_report
 
         # Calculate overall stats based on ACTUAL data being used
         total_drops = len(self.all_drops)
@@ -192,6 +203,10 @@ class DropOrchestrator:
         if self.zariman_bounty_report:
             all_errors.extend(self.zariman_bounty_report.get("errors", []))
             all_warnings.extend(self.zariman_bounty_report.get("warnings", []))
+        
+        if self.entrati_lab_bounty_report:
+            all_errors.extend(self.entrati_lab_bounty_report.get("errors", []))
+            all_warnings.extend(self.entrati_lab_bounty_report.get("warnings", []))
 
         # Group issues by type for easy fixing
         error_types = Counter(e["reason"] for e in all_errors)
@@ -265,9 +280,9 @@ class DropOrchestrator:
                     f"  ... and {len(report['cetus_bounty']['errors']) - max_errors} more"
                 )
 
-        # Show orb vallis bounty errors
+        # Show solaris bounty errors
         if report["solaris_bounty"] and report["solaris_bounty"]["errors"]:
-            print("\nCETUS BOUNTY ERRORS:")
+            print("\nSOLARIS BOUNTY ERRORS:")
             for error in report["solaris_bounty"]["errors"][:max_errors]:
                 print(
                     f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
@@ -277,9 +292,9 @@ class DropOrchestrator:
                     f"  ... and {len(report['solaris_bounty']['errors']) - max_errors} more"
                 )
         
-        # Show cambion drift bounty errors
+        # Show deimos bounty errors
         if report["deimos_bounty"] and report["deimos_bounty"]["errors"]:
-            print("\nCAMBION DRIFT BOUNTY ERRORS:")
+            print("\nDEIMOS BOUNTY ERRORS:")
             for error in report["deimos_bounty"]["errors"][:max_errors]:
                 print(
                     f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
@@ -299,6 +314,18 @@ class DropOrchestrator:
             if len(report["zariman_bounty"]["errors"]) > max_errors:
                 print(
                     f"  ... and {len(report['zariman_bounty']['errors']) - max_errors} more"
+                )
+                
+        # Show entrati lab bounty errors
+        if report["entrati_lab_bounty"] and report["entrati_lab_bounty"]["errors"]:
+            print("\nENTRATI LAB BOUNTY ERRORS:")
+            for error in report["entrati_lab_bounty"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["entrati_lab_bounty"]["errors"]) > max_errors:
+                print(
+                    f"  ... and {len(report['entrati_lab_bounty']['errors']) - max_errors} more"
                 )
 
         # Show warnings summary

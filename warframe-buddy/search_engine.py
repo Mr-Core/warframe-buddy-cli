@@ -131,7 +131,7 @@ class WarframeSearchEngine:
             with open(INDEXED_DATA_FILE, 'w') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             
-            print(f'✓ Saved indexes to {INDEXED_DATA_FILE}')
+            print(f'✓ Saved indexes to "{INDEXED_DATA_FILE}"')
             return True
             
         except IOError as e:
