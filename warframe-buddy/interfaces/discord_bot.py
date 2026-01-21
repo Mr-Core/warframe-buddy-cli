@@ -18,7 +18,7 @@ class WarframeBuddyDiscordBot:
         intents.message_content = True
         intents.messages = True
         
-        self.bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
+        self.bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents, case_insensitive=True)
         self.search_engine = None
         self.setup_commands()
         
@@ -113,7 +113,7 @@ class WarframeBuddyDiscordBot:
                 return
         
         # Add reactions for navigation
-        tab_emojis = {"🇲": "Missions", "🇷": "Relics", "🇸": "Sorties", "🇧": "Bounties"}
+        tab_emojis = {"🇲": "Missions", "🇷": "Relics", "🇸": "Sorties", "🇧": "Bounties", "🇩": "Dynamic"}
         nav_emojis = ["◀️", "▶️", "❌"]
         
         # Only add emojis for tabs that have results
@@ -178,11 +178,25 @@ class WarframeBuddyDiscordBot:
     def _group_results_by_source(self, results: list) -> dict:
         """Group results by source type and sort by chance"""
         grouped = {}
+        
+        # Map long source names to display names
+        source_display_map = {
+            "Dynamic Location Rewards": "Dynamic",
+            "Missions": "Missions",
+            "Relics": "Relics", 
+            "Sorties": "Sorties",
+            "Bounties": "Bounties",
+        }
+        
         for drop in results:
             source = drop['source_type']
-            if source not in grouped:
-                grouped[source] = []
-            grouped[source].append(drop)
+            
+            # Convert to display name
+            display_source = source_display_map.get(source, source)
+            
+            if display_source not in grouped:
+                grouped[display_source] = []
+            grouped[display_source].append(drop)
         
         # Sort each group by chance (descending)
         for source in grouped:
@@ -211,7 +225,7 @@ class WarframeBuddyDiscordBot:
         
         # Build filter options text
         filter_options = []
-        for emoji, tab_name in {"🇲": "Missions", "🇷": "Relics", "🇸": "Sorties", "🇧": "Bounties"}.items():
+        for emoji, tab_name in {"🇲": "Missions", "🇷": "Relics", "🇸": "Sorties", "🇧": "Bounties", "🇩": "Dynamic"}.items():
             if tab_name in grouped and grouped[tab_name]:
                 if tab_name == current_tab:
                     filter_options.append(f"**{emoji} {tab_name}**")
@@ -228,7 +242,7 @@ class WarframeBuddyDiscordBot:
         description = f"Total found result(s): **{total_all_results}**\n\n"
         
         # Add filter indicator
-        filter_emoji = {"Missions": "🇲", "Relics": "🇷", "Sorties": "🇸", "Bounties": "🇧"}.get(current_tab, "🔍")
+        filter_emoji = {"Missions": "🇲", "Relics": "🇷", "Sorties": "🇸", "Bounties": "🇧", "Dynamic": "🇩"}.get(current_tab, "🔍")
         description += f"Filter applied: {filter_emoji} **{current_tab}**\n"
         description += f"Total results with filter applied: **{len(items)}**\n\n"
         
@@ -276,6 +290,17 @@ class WarframeBuddyDiscordBot:
                 rotation = drop.get('rotation')
                 if rotation:
                     results_text += f"    Rotation: {rotation}\n"
+                
+                stage = drop.get('stage')
+                if stage:
+                    results_text += f"    Stage: {stage}\n"
+            
+            elif current_tab == "Dynamic":
+                results_text += f"    Mission name: {drop.get('mission_name', '?')}\n"
+                
+                rotation = drop.get('rotation')
+                if rotation:
+                    results_text += f"    Rotation: {rotation}\n"
             
             else:  # Sorties
                 mission_name = drop.get('mission_name', 'Sortie Reward')
@@ -304,7 +329,7 @@ class WarframeBuddyDiscordBot:
         if len(grouped) == 1 and len(grouped[source_type]) <= 5:  # If 5 or fewer results
             footer_text = '\nEnd of search.'
         else:
-            footer_text = "\nFilter: " + " | ".join(filter_options)
+            footer_text = "\nFilter: " + " • ".join(filter_options)
             footer_text += "\n\nNavigation: ◀️ ▶️ Turn pages • ❌ End search"
             
         results_text += footer_text

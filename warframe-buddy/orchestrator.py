@@ -22,6 +22,7 @@ class DropOrchestrator:
             EntratiLabDropParser,  # Albrecht's Laboratories
             HexBountyDropParser,
         )
+        from parsers.transient_parser import TransientDropParser  # Dynamic Location Rewards
 
         self.mission_parser = MissionDropParser(self.soup)
         self.relic_parser = RelicDropParser(self.soup)
@@ -32,6 +33,7 @@ class DropOrchestrator:
         self.zariman_bounty_parser = ZarimanBountyDropParser(self.soup)
         self.entrati_lab_bounty_parser = EntratiLabDropParser(self.soup)
         self.hex_bounty_parser = HexBountyDropParser(self.soup)
+        self.transient_parser = TransientDropParser(self.soup)
 
         self.all_drops = []
         self.parsed_at = datetime.now()
@@ -46,6 +48,7 @@ class DropOrchestrator:
         self.zariman_bounty_report = None
         self.entrati_lab_bounty_report = None
         self.hex_bounty_report = None
+        self.transient_report = None
 
     def load_html(self, file_path):
         """Load HTML file"""
@@ -59,16 +62,16 @@ class DropOrchestrator:
 
     def parse_all(self):
         """Parse everything and store validation reports"""
-        print("Parsing missions...")
+        print("Parsing Missions...")
         mission_drops, self.mission_report = self.mission_parser.parse()
 
-        print("Parsing relics...")
+        print("Parsing Relics...")
         relic_drops, self.relic_report = self.relic_parser.parse()
 
-        print("Parsing sorties...")
+        print("Parsing Sorties...")
         sortie_drops, self.sortie_report = self.sortie_parser.parse()
 
-        print("Parsing bounties...")
+        print("Parsing Bounties...")
         print("  - Cetus bounties...")
         cetus_bounty_drops, self.cetus_bounty_report = self.cetus_bounty_parser.parse()
         print("  - Orb Vallis bounties...")
@@ -81,6 +84,9 @@ class DropOrchestrator:
         entrati_lab_bounty_drops, self.entrati_lab_bounty_report = (self.entrati_lab_bounty_parser.parse())
         print("  - Hex bounties...")
         hex_bounty_drops, self.hex_bounty_report = self.hex_bounty_parser.parse()
+        
+        print("Parsing Dynamic Location Rewards...")
+        transient_drops, self.transient_report = self.transient_parser.parse()
 
         self.all_drops = (
             mission_drops
@@ -92,6 +98,7 @@ class DropOrchestrator:
             + zariman_bounty_drops
             + entrati_lab_bounty_drops
             + hex_bounty_drops
+            + transient_drops
         )
 
         self._print_parse_summary(
@@ -104,6 +111,7 @@ class DropOrchestrator:
             zariman_bounty_drops,
             entrati_lab_bounty_drops,
             hex_bounty_drops,
+            transient_drops,
         )
 
         return self.all_drops
@@ -119,6 +127,7 @@ class DropOrchestrator:
         zariman_bounty_drops,
         entrati_lab_bounty_drops,
         hex_bounty_drops,
+        transient_drops,
     ):
         """Print parsing summary"""
         total_drops_len = (
@@ -131,6 +140,7 @@ class DropOrchestrator:
             + len(zariman_bounty_drops)
             + len(entrati_lab_bounty_drops)
             + len(hex_bounty_drops)
+            + len(transient_drops)
         )
 
         print(f"\nParse Complete:")
@@ -143,6 +153,7 @@ class DropOrchestrator:
         print(f"   Zariman bounties: {len(zariman_bounty_drops)} drops")
         print(f"   Albrecht's Laboratories bounties: {len(entrati_lab_bounty_drops)} drops")
         print(f"   Hex bounties: {len(hex_bounty_drops)} drops")
+        print(f"   Dynamic Location Rewards: {len(transient_drops)} drops")
         print(f"   Total: {total_drops_len} drops")
 
     def print_validation_summary(self):
@@ -179,6 +190,7 @@ class DropOrchestrator:
         reports['zariman_bounty'] = self.zariman_bounty_report
         reports['entrati_lab_bounty'] = self.entrati_lab_bounty_report
         reports['hex_bounty'] = self.hex_bounty_report
+        reports['transient'] = self.transient_report
 
         # Calculate overall stats based on ACTUAL data being used
         total_drops = len(self.all_drops)
@@ -222,6 +234,10 @@ class DropOrchestrator:
         if self.hex_bounty_report:
             all_errors.extend(self.hex_bounty_report.get("errors", []))
             all_warnings.extend(self.hex_bounty_report.get("warnings", []))
+        
+        if self.transient_report:
+            all_errors.extend(self.transient_report.get("errors", []))
+            all_warnings.extend(self.transient_report.get("warnings", []))
 
         # Group issues by type for easy fixing
         error_types = Counter(e["reason"] for e in all_errors)
@@ -355,6 +371,18 @@ class DropOrchestrator:
                     f"  ... and {len(report['hex_bounty']['errors']) - max_errors} more"
                 )
 
+        # Show transient errors
+        if report["transient"] and report["transient"]["errors"]:
+            print("\TRANSIENT ERRORS:")
+            for error in report["transient"]["errors"][:max_errors]:
+                print(
+                    f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
+                )
+            if len(report["transient"]["errors"]) > max_errors:
+                print(
+                    f"  ... and {len(report['transient']['errors']) - max_errors} more"
+                )
+        
         # Show warnings summary
         total_warnings = report["overall"]["warning_count"]
         if total_warnings > 0:

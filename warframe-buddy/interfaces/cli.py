@@ -218,16 +218,40 @@ def interactive_search(search_engine):
             
             # Apply source type filter if needed
             if search_results:
-                source_type = input('Filter by source (Missions/Relics/Sorties/Bounties, or Enter for all): ').strip().lower()
-                if source_type in ['missions', 'relics', 'sorties', 'bounties']:
-                    # Convert to proper case
-                    source_type = source_type.capitalize()
-                    search_results = [d for d in search_results 
-                                    if d['source_type'] == source_type]
+                print('Filter by source type:')
+                print('  - Missions')
+                print('  - Relics')
+                print('  - Sorties')
+                print('  - Bounties')
+                print('  - Dynamic (Dynamic Location Rewards)')
+                source_type = input('\nEnter source type (or press Enter for all): ').strip().lower()
+                
+                if source_type:
+                    # Map user input to actual source types
+                    source_type_map = {
+                        'missions': 'Missions',
+                        'relics': 'Relics',
+                        'sorties': 'Sorties',
+                        'bounties': 'Bounties',
+                        'dynamic': 'Dynamic Location Rewards',
+                    }
+                    
+                    actual_source_type = source_type_map.get(source_type)
+                    if actual_source_type:
+                        search_results = [d for d in search_results 
+                                        if d['source_type'] == actual_source_type]
+                        filter_display = actual_source_type.replace(' Location Rewards', '')
+                    else:
+                        print(f'\nUnknown source type: {source_type}')
+                        print('Showing all results.')
+                        filter_display = 'All'
+                        input('\nPress any key to continue...')
+                else:
+                    filter_display = 'All'
                 
                 # Show results
                 if search_results:
-                    display_results(search_results, selected_item, source_type)
+                    display_results(search_results, selected_item, filter_display)
                 else:
                     print('\nNo results found with selected filters.')
                     input('\nPress any key to continue...')
@@ -317,6 +341,9 @@ def display_results(results, item_name, filter):
             elif drop['source_type'] == 'Bounties':
                 source = f'Bounties\n     Planet: {drop.get('planet_name', '?')}\n     Mission: {drop.get('mission_name', '?')}'
             
+            elif drop['source_type'] == 'Dynamic Location Rewards':
+                source = f'Dynamic Location Rewards\n     Mission name: {drop.get('mission_name', '?')}'
+            
             else:
                 source = 'Unknown'
             
@@ -338,6 +365,10 @@ def display_results(results, item_name, filter):
                 if drop.get('rotation'):
                     print(f'     Rotation: {drop['rotation']}')
                 print(f'     Stage: {drop['stage']}')
+            
+            if drop['source_type'] == 'Dynamic Location Rewards':
+                if drop.get('rotation'):
+                    print(f'     Rotation: {drop['rotation']}')
             
             print(f'     Chance: {chance:.1%} ({rarity})')
             

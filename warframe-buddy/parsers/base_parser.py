@@ -130,17 +130,17 @@ class BaseDropParser:
                     error = {
                         'index': index,
                         'item': drop['item'],
-                        'reason': 'Missing mission mode'
+                        'reason': 'Missing MISSION mode'
                     }
                     errors.append(error)
                 
                 if drop['planet_name'] is None:
-                    counters['missing_planet_name'] = counters.get('missing_planet_name', 0) + 1
+                    counters['missing_mission_planet_name'] = counters.get('missing_mission_planet_name', 0) + 1
                     # Hard error, create errors report
                     error = {
                         'index': index,
                         'item': drop['item'],
-                        'reason': 'Missing planet name'
+                        'reason': 'Missing MISSION planet name'
                     }
                     errors.append(error)
                 
@@ -156,7 +156,7 @@ class BaseDropParser:
                             'mission_mode': drop['mission_mode'],
                             'planet_name': drop['planet_name'],
                             'mission_type': drop['mission_type'],
-                            'reason': 'Missing mission name'
+                            'reason': 'Missing MISSION name'
                         }
                         errors.append(error)
 
@@ -166,18 +166,18 @@ class BaseDropParser:
                     error = {
                         'index': index,
                         'item': drop['item'],
-                        'reason': 'Missing mission descriptor'
+                        'reason': 'Missing MISSION type'
                     }
                     errors.append(error)
                 
                 if 'rotation' in drop:
                     if drop['rotation'] not in ('A', 'B', 'C', 'D'):
-                        counters['missing_rotation'] = counters.get('missing_rotation', 0) + 1
+                        counters['missing_mission_rotation'] = counters.get('missing_mission_rotation', 0) + 1
                         # Hard error, create errors report
                         error = {
                             'index': index,
                             'item': drop['item'],
-                            'reason': 'Missing mission rotation',
+                            'reason': 'Missing MISSION rotation',
                             'mission_type': drop['mission_type']
                         }
                         errors.append(error)
@@ -189,7 +189,7 @@ class BaseDropParser:
                     error = {
                         'index': index,
                         'item': drop['item'],
-                        'reason': 'Missing relic tier'
+                        'reason': 'Missing RELIC tier'
                     }
                     errors.append(error)
                 
@@ -199,7 +199,7 @@ class BaseDropParser:
                     error = {
                         'index': index,
                         'item': drop['item'],
-                        'reason': 'Missing relic name'
+                        'reason': 'Missing RELIC name'
                     }
                     errors.append(error)
                 
@@ -209,7 +209,7 @@ class BaseDropParser:
                     error = {
                         'index': index,
                         'item': drop['item'],
-                        'reason': 'Missing relic refinement'
+                        'reason': 'Missing RELIC refinement'
                     }
                     errors.append(error)
                     
@@ -221,7 +221,7 @@ class BaseDropParser:
                         'index': index,
                         'item': drop['item'],
                         'source_type': drop['source_type'],
-                        'reason': 'Missing sortie mission name'
+                        'reason': 'Missing SORTIE mission name'
                     }
                     errors.append(error)
             
@@ -233,7 +233,7 @@ class BaseDropParser:
                         'index': index,
                         'item': drop['item'],
                         'source_type': drop['source_type'],
-                        'reason': 'Missing bounty name'
+                        'reason': 'Missing BOUNTY name'
                     }
                     errors.append(error)
                 
@@ -244,7 +244,7 @@ class BaseDropParser:
                         'index': index,
                         'item': drop['item'],
                         'source_type': drop['source_type'],
-                        'reason': 'Missing bounty level'
+                        'reason': 'Missing BOUNTY level'
                     }
                     errors.append(error)
                 
@@ -255,7 +255,7 @@ class BaseDropParser:
                         'index': index,
                         'item': drop['item'],
                         'source_type': drop['source_type'],
-                        'reason': 'Missing bounty stage'
+                        'reason': 'Missing BOUNTY stage'
                     }
                     errors.append(error)
                 
@@ -266,7 +266,30 @@ class BaseDropParser:
                         'index': index,
                         'item': drop['item'],
                         'source_type': drop['source_type'],
-                        'reason': 'Missing bounty rotation'
+                        'reason': 'Missing BOUNTY rotation'
+                    }
+                    errors.append(error)
+            
+            if drop['source_type'] == 'Dynamic Location Rewards':
+                if drop['mission_name'] is None:
+                    counters['missing_transient_mission_name'] = counters.get('missing_transient_mission_name', 0) + 1
+                    # Hard error, create errors report
+                    error = {
+                        'index': index,
+                        'item': drop['item'],
+                        'source_type': drop['source_type'],
+                        'reason': 'Missing TRANSIENT mission name'
+                    }
+                    errors.append(error)
+                
+                if 'rotation' in drop and drop['rotation'] is None:
+                    counters['missing_transient_rotation'] = counters.get('missing_transient_rotation', 0) + 1
+                    # Hard error, create errors report
+                    error = {
+                        'index': index,
+                        'item': drop['item'],
+                        'source_type': drop['source_type'],
+                        'reason': 'Missing TRANSIENT rotation'
                     }
                     errors.append(error)
         
