@@ -18,10 +18,282 @@ class WarframeBuddyDiscordBot:
         intents.message_content = True
         intents.messages = True
         
-        self.bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents, case_insensitive=True)
-        self.search_engine = None
-        self.setup_commands()
+        self.bot = commands.Bot(
+            command_prefix=COMMAND_PREFIX,
+            intents=intents,
+            case_insensitive=True
+        )
         
+        self.search_engine = None
+        
+        self.setup_error_handling()
+        self.setup_commands()
+    
+    def setup_error_handling(self):
+        """Set up error handlers for commands"""
+        
+        def get_command_suggestions(attempted_cmd, available_commands, max_suggestions=3):
+            """Get similar command suggestions using fuzzy matching"""
+            import difflib
+            
+            # First check if it's a simple typo (missing/extra letter)
+            suggestions = difflib.get_close_matches(
+                attempted_cmd, 
+                available_commands, 
+                n=max_suggestions, 
+                cutoff=0.4
+            )
+            
+            # Also check for partial matches
+            if not suggestions:
+                partial_matches = [cmd for cmd in available_commands 
+                                if attempted_cmd in cmd or cmd in attempted_cmd]
+                suggestions = partial_matches[:max_suggestions]
+            
+            return suggestions
+        
+        @self.bot.event
+        async def on_command_error(ctx, error):
+            """Handle command errors"""
+            if isinstance(error, commands.CommandNotFound):
+                message_content = ctx.message.content
+                prefix = COMMAND_PREFIX
+                
+                if message_content.startswith(prefix):
+                    # Extract attempted command
+                    parts = message_content[len(prefix):].strip().split(maxsplit=1)
+                    attempted_cmd = parts[0].lower() if parts else ""
+                    
+                    if attempted_cmd:  # Make sure there's actually a command attempted
+                        available_commands = [cmd.name for cmd in self.bot.commands]
+                        suggestions = get_command_suggestions(attempted_cmd, available_commands)
+                        
+                        # Create helpful error message
+                        embed = discord.Embed(
+                            title=f"❌ Unknown Command: `{prefix}{attempted_cmd}`",
+                            color=discord.Color.red()
+                        )
+                        
+                        if suggestions:
+                            suggestions_text = "\n".join([f"• `{prefix}{cmd}`" for cmd in suggestions])
+                            embed.add_field(
+                                name="Did you mean one of these?",
+                                value=suggestions_text,
+                                inline=False
+                            )
+                        
+                        embed.add_field(
+                            name="All Commands",
+                            value=f"Type `{prefix}help` to see all available commands.",
+                            inline=False
+                        )
+                        
+                        # Common typos mapping
+                        common_typos = {
+                            "serach": "search",
+                            "seach": "search",
+                            "searh": "search",
+                            "stat": "status",
+                            "hel": "help",
+                            "help": "help",
+                            "loa": "load",
+                            "ld": "load"
+                        }
+                        
+                        if attempted_cmd in common_typos:
+                            embed.add_field(
+                                name="Common typo detected!",
+                                value=f"Did you mean `{prefix}{common_typos[attempted_cmd]}`?",
+                                inline=False
+                            )
+                        
+                        await ctx.send(embed=embed)
+                
+                return
+            
+            # Handle other errors...
+            elif isinstance(error, commands.MissingRequiredArgument):
+                embed = discord.Embed(
+                    title="❌ Missing Argument",
+                    description=f"Missing required argument for `{ctx.command}`.",
+                    color=discord.Color.orange()
+                )
+                
+                # Get command signature
+                params = list(ctx.command.params.values())[1:]  # Skip ctx parameter
+                if params:
+                    param_list = []
+                    for param in params:
+                        if param.default == param.empty:
+                            param_list.append(f"<{param.name}>")  # Required
+                        else:
+                            param_list.append(f"[{param.name}]")  # Optional
+                    
+                    embed.add_field(
+                        name="Usage",
+                        value=f"`{prefix}{ctx.command} {' '.join(param_list)}`",
+                        inline=False
+                    )
+                
+                embed.add_field(
+                    name="Example",
+                    value=f"`{prefix}{ctx.command} \"item name\"`",
+                    inline=False
+                )
+                
+                await ctx.send(embed=embed)
+                return
+            
+            # Log other errors
+            print(f"[ERROR] Command error: {type(error).__name__}: {error}")
+        
+    def setup_commands(self):
+        """Register all bot commands"""
+        self.bot.remove_command('help')
+        
+        @self.bot.command(name='search', help='Search for item drop locations')
+        async def search(ctx, *, search_query: str = None):
+            """Search for an item"""
+            if not search_query:
+                await ctx.send(f'❌ Please specify: `{COMMAND_PREFIX}search "forma"`')
+                return
+            
+            async with ctx.typing():
+                selected_item = await self.fuzzy_select_item(ctx, search_query)
+                if not selected_item:
+                    return
+                
+                results = self.search_engine.search_item(selected_item)
+                
+                if not results:
+                    await ctx.send(f'❌ No drops found for **"{selected_item}"**')
+                    return
+                
+                # Show interactive display
+                await self.display_interactive_search(ctx, selected_item, results)
+
+        @self.bot.command(name='best', help='Show best farming locations for an item')
+        async def best(ctx, *, search_query: str = None):
+            """Show best drop locations"""
+            # Currently useless, ?search shows all necessary info 
+            # TODO Refactor to real-time strategic guidance
+            
+            if not search_query:
+                await ctx.send(f'❌ Please specify an item: `{COMMAND_PREFIX}best "forma"`')
+                return
+            
+            async with ctx.typing():
+                # Use fuzzy selector to get item name
+                selected_item = await self.fuzzy_select_item(ctx, search_query)
+                if not selected_item:
+                    return  # Error already handled
+                
+                summary = self.search_engine.get_item_summary(selected_item)
+
+                if summary['total_sources'] == 0:
+                    await ctx.send(f'❌ No drops found for **{selected_item}**')
+                    return
+                
+                best_source = summary['best_source']
+                best_chance = summary['best_chance'] * 100
+                
+                response = f'**{selected_item}** - Best farming spot:\n'
+                response += f'**{best_chance:.1f}%** chance from '
+
+                if best_source['source_type'] == 'Missions':
+                    response += f'**{best_source.get('mission_name')}** on {best_source.get('planet_name')}'
+                    if best_source.get('rotation'):
+                        response += f'(Rotation {best_source.get('rotation')})'
+                
+                elif best_source['source_type'] == 'Relics':
+                    response += f'**{best_source.get('relic_tier')} {best_source.get('relic_name')} {best_source.get('relic_refinement')}**'
+                
+                elif best_source['source_type'] == 'Sorties':
+                    response += f'**Sortie**'
+                    
+                elif best_source['source_type'] == 'Bounties':
+                    response += f'**{best_source.get('mission_type')}** on {best_source.get('planet_name')} / {best_source.get('mission_name')}'
+
+                response += f'\n\n📊 Found {summary['total_sources']} total sources '
+                response += f'({len(summary.get('missions', []))} missions, '
+                response += f'{len(summary.get('relics', []))} relics, '
+                response += f'{len(summary.get('sorties', []))} sortie, '
+                response += f'{len(summary.get('bounties', []))} bounties)'
+
+                await ctx.send(response)
+        
+        @self.bot.command(name='load', help='Load search indexes')
+        async def load(ctx):
+            """Load or create search indexes"""
+            async with ctx.typing():
+                try:
+                    self.search_engine = WarframeSearchEngine()
+                    self.search_engine.load_indexes()
+                    await ctx.send('✅ Search indexes loaded successfully!')
+                except FileNotFoundError:
+                    await ctx.send('❌ No index file found! Run the CLI version first to create indexes.')
+                except Exception as e:
+                    await ctx.send(f'❌ Error loading indexes: {str(e)}')
+            
+        @self.bot.command(name='status', help='Check bot status')
+        async def status(ctx):
+            """Show bot status"""
+            if self.search_engine:
+                status_info = self.search_engine.get_index_status()
+                
+                response = f'✅ **Bot is running**\n'
+                response += f'• Items indexed: {status_info['total_items']}\n'
+                response += f'• Last rebuild: {status_info['last_rebuild'] or 'Unknown'}\n'
+                response += f'• Loaded: {'Yes' if status_info['loaded'] else 'No'}'
+            else:
+                response = f'⚠️ **Search engine not loaded**\nUse "{COMMAND_PREFIX}load" to load indexes'
+            
+            await ctx.send(response)
+        
+        @self.bot.command(name='help', help='Show all commands')
+        async def custom_help(ctx):
+            """Custom help command"""
+            help_text = textwrap.dedent(f"""\
+                **Warframe Buddy Bot Commands:**
+                
+                `{COMMAND_PREFIX}search <item>` - Search for item drop locations
+                `{COMMAND_PREFIX}best <item>` - Show best farming spot for item
+                `{COMMAND_PREFIX}load` - Load search indexes (required first)
+                `{COMMAND_PREFIX}status` - Check bot status
+                `{COMMAND_PREFIX}helpme` - Show this help
+                
+                **Example:** `{COMMAND_PREFIX}search Mesa Prime Blueprint`
+            """)
+            
+            await ctx.send(help_text)
+        
+        @self.bot.command(name='hi')
+        async def greeting(ctx):
+            """Simple greeting to the user"""
+            await ctx.send('Hello! 😊')
+        
+        @self.bot.event
+        async def on_ready():
+            """Called when bot connects"""
+            print(f'✅ Discord bot logged in as {self.bot.user}')
+            
+            # Set helpful status
+            await self.bot.change_presence(
+                activity=discord.Game(name=f'{COMMAND_PREFIX}help')
+            )
+            
+            print(f'✅ Bot is in {len(self.bot.guilds)} servers')
+            print(f'✅ Status set to: "{COMMAND_PREFIX}help"')
+            
+            # Try to auto-load search engine
+            try:
+                self.search_engine = WarframeSearchEngine()
+                self.search_engine.load_indexes()
+                print('✅ Search indexes loaded automatically')
+            except:
+                print(f'⚠️  Could not auto-load indexes. Users need to run {COMMAND_PREFIX}load')
+    
+    
     async def fuzzy_select_item(self, ctx, search_query: str) -> str | None:
         """
         Handle fuzzy item selection with interactive menu
@@ -246,21 +518,28 @@ class WarframeBuddyDiscordBot:
         description += f"Filter applied: {filter_emoji} **{current_tab}**\n"
         description += f"Total results with filter applied: **{len(items)}**\n\n"
         
-        description += f"**Page {page + 1} of {total_pages}**\n\n"
+        # description += f"**Page {page + 1} of {total_pages}**\n\n"
         
         embed.description = description
         
         # Add results field with your format
         results_text = "```\n"
-        results_text += "─" * 40 + "\n"
+        
+        source_print = current_tab
+        if source_print == 'Dynamic':
+            source_print = 'Dynamic Location Rewards'
+        results_text += f'Source: {source_print}\n'
+        
+        results_text += "─" * 40 + "\n\n"
         
         for i, drop in enumerate(page_items, start=start_idx + 1):
             # Source line
-            results_text += f"{i:2}. Source: {drop['source_type']}\n"
+            # results_text += f"{i:2}. Source: {drop['source_type']}\n"
+            results_text += f"{i:2}. "
             
             # Format based on source type
             if current_tab == "Missions":
-                results_text += f"    Planet: {drop.get('planet_name', '?')}\n"
+                results_text += f"Planet: {drop.get('planet_name', '?')}\n"
                 results_text += f"    Mission: {drop.get('mission_name', '?')}\n"
                 
                 mission_type = drop.get('mission_type')
@@ -271,16 +550,12 @@ class WarframeBuddyDiscordBot:
                 if rotation:
                     results_text += f"    Rotation: {rotation}\n"
             
-            elif current_tab == "Relics":
-                results_text += f"    Tier: {drop.get('relic_tier', '?')}\n"
-                results_text += f"    Name: {drop.get('relic_name', '?')}\n"
-                
-                refinement = drop.get('relic_refinement')
-                if refinement:
-                    results_text += f"    Refinement: {refinement}\n"
+            elif current_tab == "Relics":  # v2
+                results_text += f"Relic: {drop.get('relic_tier', '?')} {drop.get('relic_name', )}\n"
+                results_text += f"    Refinement: {drop.get('relic_refinement')}\n"
             
             elif current_tab == "Bounties":
-                results_text += f"    Planet: {drop.get('planet_name', '?')}\n"
+                results_text += f"Planet: {drop.get('planet_name', '?')}\n"
                 results_text += f"    Location: {drop.get('mission_name', '?')}\n"
                 
                 bounty_type = drop.get('mission_type')
@@ -296,7 +571,7 @@ class WarframeBuddyDiscordBot:
                     results_text += f"    Stage: {stage}\n"
             
             elif current_tab == "Dynamic":
-                results_text += f"    Mission name: {drop.get('mission_name', '?')}\n"
+                results_text += f"Mission name: {drop.get('mission_name', '?')}\n"
                 
                 rotation = drop.get('rotation')
                 if rotation:
@@ -304,7 +579,7 @@ class WarframeBuddyDiscordBot:
             
             else:  # Sorties
                 mission_name = drop.get('mission_name', 'Sortie Reward')
-                results_text += f"    Mission: {mission_name}\n"
+                results_text += f"Mission: {mission_name}\n"
             
             # Chance and rarity
             chance = drop.get('chance', 0) * 100
@@ -315,6 +590,7 @@ class WarframeBuddyDiscordBot:
             if i < end_idx and i < len(items):
                 results_text += "\n"
         
+        results_text += '\n'
         results_text += "─" * 40 + "\n"
         
         # Add "and X more" footer if applicable
@@ -337,152 +613,7 @@ class WarframeBuddyDiscordBot:
         embed.add_field(name="Results", value=results_text, inline=False)
         
         return embed
-    
-    def setup_commands(self):
-        """Register all bot commands"""
-        
-        @self.bot.command(name='search', help='Search for item drop locations')
-        async def search(ctx, *, search_query: str = None):
-            """Search for an item"""
-            if not search_query:
-                await ctx.send(f'❌ Please specify: `{COMMAND_PREFIX}search "forma"`')
-                return
-            
-            async with ctx.typing():
-                selected_item = await self.fuzzy_select_item(ctx, search_query)
-                if not selected_item:
-                    return
-                
-                results = self.search_engine.search_item(selected_item)
-                
-                if not results:
-                    await ctx.send(f'❌ No drops found for **"{selected_item}"**')
-                    return
-                
-                # Show interactive display
-                await self.display_interactive_search(ctx, selected_item, results)
-
-        @self.bot.command(name='best', help='Show best farming locations for an item')
-        async def best(ctx, *, search_query: str = None):
-            """Show best drop locations"""
-            # Currently useless, ?search shows all necessary info 
-            # TODO Refactor to real-time strategic guidance
-            
-            if not search_query:
-                await ctx.send(f'❌ Please specify an item: `{COMMAND_PREFIX}best "forma"`')
-                return
-            
-            async with ctx.typing():
-                # Use fuzzy selector to get item name
-                selected_item = await self.fuzzy_select_item(ctx, search_query)
-                if not selected_item:
-                    return  # Error already handled
-                
-                summary = self.search_engine.get_item_summary(selected_item)
-
-                if summary['total_sources'] == 0:
-                    await ctx.send(f'❌ No drops found for **{selected_item}**')
-                    return
-                
-                best_source = summary['best_source']
-                best_chance = summary['best_chance'] * 100
-                
-                response = f'**{selected_item}** - Best farming spot:\n'
-                response += f'**{best_chance:.1f}%** chance from '
-
-                if best_source['source_type'] == 'Missions':
-                    response += f'**{best_source.get('mission_name')}** on {best_source.get('planet_name')}'
-                    if best_source.get('rotation'):
-                        response += f'(Rotation {best_source.get('rotation')})'
-                
-                elif best_source['source_type'] == 'Relics':
-                    response += f'**{best_source.get('relic_tier')} {best_source.get('relic_name')} {best_source.get('relic_refinement')}**'
-                
-                elif best_source['source_type'] == 'Sorties':
-                    response += f'**Sortie**'
-                    
-                elif best_source['source_type'] == 'Bounties':
-                    response += f'**{best_source.get('mission_type')}** on {best_source.get('planet_name')} / {best_source.get('mission_name')}'
-
-                response += f'\n\n📊 Found {summary['total_sources']} total sources '
-                response += f'({len(summary.get('missions', []))} missions, '
-                response += f'{len(summary.get('relics', []))} relics, '
-                response += f'{len(summary.get('sorties', []))} sortie, '
-                response += f'{len(summary.get('bounties', []))} bounties)'
-
-                await ctx.send(response)
-        
-        @self.bot.command(name='load', help='Load search indexes')
-        async def load(ctx):
-            """Load or create search indexes"""
-            async with ctx.typing():
-                try:
-                    self.search_engine = WarframeSearchEngine()
-                    self.search_engine.load_indexes()
-                    await ctx.send('✅ Search indexes loaded successfully!')
-                except FileNotFoundError:
-                    await ctx.send('❌ No index file found! Run the CLI version first to create indexes.')
-                except Exception as e:
-                    await ctx.send(f'❌ Error loading indexes: {str(e)}')
-            
-        @self.bot.command(name='status', help='Check bot status')
-        async def status(ctx):
-            """Show bot status"""
-            if self.search_engine:
-                status_info = self.search_engine.get_index_status()
-                
-                response = f'✅ **Bot is running**\n'
-                response += f'• Items indexed: {status_info['total_items']}\n'
-                response += f'• Last rebuild: {status_info['last_rebuild'] or 'Unknown'}\n'
-                response += f'• Loaded: {'Yes' if status_info['loaded'] else 'No'}'
-            else:
-                response = f'⚠️ **Search engine not loaded**\nUse "{COMMAND_PREFIX}load" to load indexes'
-            
-            await ctx.send(response)
-        
-        @self.bot.command(name='helpme', help='Show all commands')
-        async def helpme(ctx):
-            """Custom help command"""
-            help_text = textwrap.dedent(f"""\
-                **Warframe Buddy Bot Commands:**
-                
-                `{COMMAND_PREFIX}search <item>` - Search for item drop locations
-                `{COMMAND_PREFIX}best <item>` - Show best farming spot for item
-                `{COMMAND_PREFIX}load` - Load search indexes (required first)
-                `{COMMAND_PREFIX}status` - Check bot status
-                `{COMMAND_PREFIX}helpme` - Show this help
-                
-                **Example:** `{COMMAND_PREFIX}search Mesa Prime Blueprint`
-            """)
-            
-            await ctx.send(help_text)
-        
-        @self.bot.command(name='hi')
-        async def greeting(ctx):
-            """Simple greeting to the user"""
-            await ctx.send('Hello! 😊')
-        
-        @self.bot.event
-        async def on_ready():
-            """Called when bot connects"""
-            print(f'✅ Discord bot logged in as {self.bot.user}')
-            
-            # Set helpful status
-            await self.bot.change_presence(
-                activity=discord.Game(name=f'{COMMAND_PREFIX}helpme')
-            )
-            
-            print(f'✅ Bot is in {len(self.bot.guilds)} servers')
-            print(f'✅ Status set to: "{COMMAND_PREFIX}helpme"')
-            
-            # Try to auto-load search engine
-            try:
-                self.search_engine = WarframeSearchEngine()
-                self.search_engine.load_indexes()
-                print('✅ Search indexes loaded automatically')
-            except:
-                print(f'⚠️  Could not auto-load indexes. Users need to run {COMMAND_PREFIX}load')
-                
+       
     def run(self):
         """Start the Discord bot"""
         from config import DISCORD_TOKEN
