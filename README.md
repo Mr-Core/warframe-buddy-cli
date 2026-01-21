@@ -68,26 +68,24 @@ README.md
 
 | Parser/Data Type | Status | Notes |
 |------------------|--------|-------|
-| Missions | ✅ | |
-| Relics | ✅ | |
-| Keys | ❌ | Quest-related items, not farmable |
-| Dynamic Location Rewards | ✅ | |
-| Sorties | ✅ | |
-| Cetus Bounty Rewards | ✅ | |
-| Orb Vallis Bounty Rewards | ✅ | |
-| Cambion Drift Bounty Rewards | ✅ | |
-| Zariman Bounty Rewards | ✅ | |
-| Albrecht's Laboratories Bounty Rewards | ✅ | |
-| Hex Bounty Rewards | ✅ | |
-| Mod Drops by Source | 📋 | |
-| Mod Drops by Mod | 📋 | |
-| Blueprint/Part Drops by Source | 📋 | |
-| Blueprint/Part Drops by Item | 📋 | |
-| Resource Drops by Source | 📋 | |
-| Sigil Drops by Source | 📋 | |
-| Additional Item Drops by Source | 📋 | |
-
-✅ = Implemented • ❌ = Skipped (intentionally excluded) • 📋 = Planned
+| Missions | ✅ | Implemented |
+| Relics | ✅ | Implemented |
+| Keys | ❌ | Skipped: Quest-related items, not farmable |
+| Dynamic Location Rewards | ✅ | Implemented |
+| Sorties | ✅ | Implemented |
+| Cetus Bounty Rewards | ✅ | Implemented |
+| Orb Vallis Bounty Rewards | ✅ | Implemented |
+| Cambion Drift Bounty Rewards | ✅ | Implemented |
+| Zariman Bounty Rewards | ✅ | Implemented |
+| Albrecht's Laboratories Bounty Rewards | ✅ | Implemented |
+| Hex Bounty Rewards | ✅ | Implemented |
+| Mod Drops by Source | 📋 | Planned |
+| Mod Drops by Mod | 📋 | Planned |
+| Blueprint/Part Drops by Source | 📋 | Planned |
+| Blueprint/Part Drops by Item | 📋 | Planned |
+| Resource Drops by Source | 📋 | Planned |
+| Sigil Drops by Source | 📋 | Planned |
+| Additional Item Drops by Source | 📋 | Planned |
 
 ## Data Flow
 
