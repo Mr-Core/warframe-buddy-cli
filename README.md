@@ -71,7 +71,7 @@ README.md
 | Missions | ✅ | |
 | Relics | ✅ | |
 | Keys | ❌ | Quest-related items, not farmable |
-| Dynamic Location Rewards | 📋 | |
+| Dynamic Location Rewards | ✅ | |
 | Sorties | ✅ | |
 | Cetus Bounty Rewards | ✅ | |
 | Orb Vallis Bounty Rewards | ✅ | |
