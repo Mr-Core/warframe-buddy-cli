@@ -142,7 +142,8 @@ Results:
 ## Roadmap
 - [x] Implement a service manager for running the program as a background service
 - [x] Add scheduled daily data updates with intelligent caching
-- [ ] Complete parser suite (enemies, bounties, syndicates, mods, etc.)
+- [x] Complete base parser suite (enemies, bounties, syndicates, mods, etc.)
+- [x] Add Discord bot integration
 - [ ] Add Flask web interface
 - [ ] Add Telegram bot integration
 - [ ] Refactor service manager for Linux deployment
