@@ -371,11 +371,12 @@ class WarframeBuddyDiscordBot:
         
         current_tab = initial_tab
         current_page = 0
-        items_per_page = 5
+        items_per_page = 6
         
         # Create initial message
         embed = self._create_tab_embed(item_name, grouped, current_tab, current_page, items_per_page)
         message = await ctx.send(embed=embed)
+        await message.edit(embed=embed)
         
         if len(grouped) == 1:
             source_type = list(grouped.keys())[0]
@@ -431,16 +432,25 @@ class WarframeBuddyDiscordBot:
                 
                 # Handle close
                 elif emoji == "❌":
+                    embed = self._create_tab_embed(item_name, grouped, current_tab, current_page, items_per_page)
+                    embed = self._update_embed_for_end(embed, "End of search")
+                    await message.edit(embed=embed)
+                    
                     await message.clear_reactions()
                     return
                 
                 # Update message
                 embed = self._create_tab_embed(item_name, grouped, current_tab, current_page, items_per_page)
                 await message.edit(embed=embed)
+                
                 await message.remove_reaction(emoji, user)
                 
             except asyncio.TimeoutError:
                 # Remove reactions after timeout
+                embed = self._create_tab_embed(item_name, grouped, current_tab, current_page, items_per_page)
+                embed = self._update_embed_for_end(embed, "Search timed out")
+                await message.edit(embed=embed)
+                
                 try:
                     await message.clear_reactions()
                 except:
@@ -516,13 +526,11 @@ class WarframeBuddyDiscordBot:
         # Add filter indicator
         filter_emoji = {"Missions": "🇲", "Relics": "🇷", "Sorties": "🇸", "Bounties": "🇧", "Dynamic": "🇩"}.get(current_tab, "🔍")
         description += f"Filter applied: {filter_emoji} **{current_tab}**\n"
-        description += f"Total results with filter applied: **{len(items)}**\n\n"
-        
-        # description += f"**Page {page + 1} of {total_pages}**\n\n"
+        description += f"Total results with filter applied: **{len(items)}**\n"
         
         embed.description = description
         
-        # Add results field with your format
+        # Add results field
         results_text = "```\n"
         
         source_print = current_tab
@@ -534,7 +542,6 @@ class WarframeBuddyDiscordBot:
         
         for i, drop in enumerate(page_items, start=start_idx + 1):
             # Source line
-            # results_text += f"{i:2}. Source: {drop['source_type']}\n"
             results_text += f"{i:2}. "
             
             # Format based on source type
@@ -550,7 +557,7 @@ class WarframeBuddyDiscordBot:
                 if rotation:
                     results_text += f"    Rotation: {rotation}\n"
             
-            elif current_tab == "Relics":  # v2
+            elif current_tab == "Relics":
                 results_text += f"Relic: {drop.get('relic_tier', '?')} {drop.get('relic_name', )}\n"
                 results_text += f"    Refinement: {drop.get('relic_refinement')}\n"
             
@@ -611,6 +618,40 @@ class WarframeBuddyDiscordBot:
         results_text += footer_text
         
         embed.add_field(name="Results", value=results_text, inline=False)
+        
+        return embed
+    
+    def _update_embed_for_end(self, embed: discord.Embed, reason: str = "End of search") -> discord.Embed:
+        """Update embed to show search has ended"""
+        if len(embed.fields) > 0:
+            field = embed.fields[0]
+            current_value = field.value
+            
+            # Replace navigation text
+            nav_texts = [
+                "Navigation: ◀️ ▶️ Turn pages • ❌ End search",
+                "◀️ ▶️ Turn pages • ❌ End search",
+                "Filter: "  # This marks the start of the navigation section
+            ]
+            
+            for nav_text in nav_texts:
+                if nav_text in current_value:
+                    # Find where the navigation section starts
+                    nav_index = current_value.find(nav_text)
+                    if nav_index != -1:
+                        # Keep everything before the navigation, add end message
+                        new_value = current_value[:nav_index].rstrip() + f"\n\n{reason}"
+                        break
+            else:
+                # If no navigation found (single page), look for "End of search." at bottom
+                if "End of search." in current_value:
+                    # Replace the existing "End of search." with reason
+                    new_value = current_value.replace("End of search.", reason)
+                else:
+                    # If no navigation found, just append
+                    new_value = current_value + f"\n\n{reason}"
+            
+            embed.set_field_at(0, name=field.name, value=new_value, inline=field.inline)
         
         return embed
        
