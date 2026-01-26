@@ -1,350 +1,376 @@
-import schedule
-import time
-from datetime import datetime, timedelta
+# services/service_manager.py
 import os
 import sys
+import time
+import signal
+import logging
+import subprocess
+import threading
+from typing import Optional, Dict, Any
 from pathlib import Path
 
-# Add the current directory to Python path so imports work
-sys.path.insert(0, str(Path(__file__).parent))
 
-from search_engine import WarframeSearchEngine
-from orchestrator import DropOrchestrator
-from services.fetch_data import fetch_data
-from config import (
-    DEVELOPMENT_MODE,
-    HTML_FILE,
-    PARSED_DATA_FILE,
-    INDEXED_DATA_FILE,
-    DAILY_UPDATE_TIME,
-    HEALTH_CHECK_TIME,
-)
-
-
-class WarframeDataService:
-    """Main service manager for production deployment"""
-
-    def __init__(self):
-        self.search_engine = WarframeSearchEngine()
-        self.is_running = False
-
-    def start(self):
-        """Start the service"""
-        print('=' * 60)
-        print('WARFRAME DATA SERVICE - Starting...')
-        print('=' * 60)
-
-        # Load or create initial indexes
-        self._initialize_indexes()
-
-        # Start scheduled updates (if not in development mode)
-        if not DEVELOPMENT_MODE:
-            self._setup_scheduler()
-            print('✓ Daily scheduler enabled')
-
-        # Mark service as running
-        self.is_running = True
-        status = self.get_status()
-        print('\n' + '=' * 60)
-        print('SERVICE STATUS:')
-        print('=' * 60)
-        print(f'  Running: {'Yes' if status['running'] else 'No'}')
-        print(f'  Index loaded: {'Yes' if status['index_loaded'] else 'No'}')
-        print(f'  Total items: {status['total_items']}')
-        print(f'  Last rebuild: {status['last_rebuild'] or 'Never'}')
-        print(f'  Development mode: {status['development_mode']}')
-        print('=' * 60)
-
-        if status['index_loaded']:
-            print('\n✓ Service is ready! You can now:')
-            print('  - Add Flask web server')
-            print('  - Add Telegram bot')
-            print('  - Start handling requests')
-        else:
-            print('\n⚠  Service started but indexes not loaded.')
-            print('  Run a manual update or check data files.')
-
-        # Placeholder to start:
-        # - Flask web server
-        # - Telegram bot
-        # But for now, just keep running
-        self._keep_alive()
-
-    def _initialize_indexes(self):
-        """Load existing indexes or create new ones"""
-        print('\nInitializing search indexes...')
-
-        # Check if data files exist
-        has_index_file = os.path.exists(INDEXED_DATA_FILE)
-        has_parsed_file = os.path.exists(PARSED_DATA_FILE)
-        has_html_file = os.path.exists(HTML_FILE)
-
-        print(f'  Index file: {'Found' if has_index_file else 'Missing'}')
-        print(f'  Parsed data: {'Found' if has_parsed_file else 'Missing'}')
-        print(f'  HTML data: {'Found' if has_html_file else 'Missing'}')
-
-        # Strategy 1: Try to load existing indexes
-        if has_index_file:
-            print('\nAttempting to load existing indexes...')
-            if self.search_engine.load_indexes():
-                print('✓ Loaded existing indexes')
-                return
-
-        # Strategy 2: Try to rebuild from parsed data
-        if has_parsed_file:
-            print('\nNo indexes found, attempting to rebuild from parsed data...')
-            if self.search_engine.rebuild_from_parsed_file():
-                print('✓ Rebuilt indexes from parsed data')
-                return
-
-        # Strategy 3: Try to parse existing HTML
-        if has_html_file:
-            print('\nNo parsed data found, parsing existing HTML...')
-            self._perform_full_update(force_fetch=False)
-            return
-
-        # Strategy 4: Full fetch and parse (last resort)
-        print('\nNo data files found, performing full initialization...')
-        self._perform_full_update(force_fetch=True)
-
-    def _perform_full_update(self, force_fetch=True):
-        """Do a complete data update"""
-        print('\n' + '=' * 40)
-        print('PERFORMING FULL DATA UPDATE')
-        print('=' * 40)
-
-        # Fetch new data if needed
-        if force_fetch and not DEVELOPMENT_MODE:
-            print('\n1. Fetching new data...')
-            try:
-                fetch_data()
-                print('✓ Data fetched successfully')
-            except Exception as e:
-                print(f'✗ Failed to fetch data: {e}')
-                if os.path.exists(HTML_FILE):
-                    print('Using existing HTML file...')
-                else:
-                    print('No data available. Service cannot start.')
-                    return False
-
-        # Parse the data
-        print('\n2. Parsing data...')
-        try:
-            orchestrator = DropOrchestrator()
-            all_drops = orchestrator.parse_all()
-            print('✓ Data parsed successfully')
-
-            # Show validation
-            orchestrator.print_validation_summary()
-
-        except Exception as e:
-            print(f'✗ Failed to parse data: {e}')
-            return False
-
-        # Save parsed data (for future rebuilds)
-        print('\n3. Saving parsed data...')
-        try:
-            orchestrator.save_parsed_data()
-            print('✓ Parsed data saved')
-        except Exception as e:
-            print(f'✗ Failed to save parsed data: {e}')
-
-        # Create indexes
-        print('\n4. Creating indexes...')
-        try:
-            self.search_engine.create_indexes_from_drops(all_drops)
-            self.search_engine.save_indexes()
-            print('✓ Indexes created and saved')
-            return True
-
-        except Exception as e:
-            print(f'✗ Failed to create indexes: {e}')
-            return False
-
-    def _setup_scheduler(self):
-        """Setup daily update scheduler"""
-        # Schedule daily update at 3 AM
-        schedule.every().day.at(DAILY_UPDATE_TIME).do(self._daily_update)
-
-        # Also schedule a weekly health check
-        schedule.every().sunday.at(HEALTH_CHECK_TIME).do(self._health_check)
-
-        print(f'✓ Scheduler enabled')
-        print(f'  - Daily updates: {DAILY_UPDATE_TIME}')
-        print(f'  - Health checks: Sunday {HEALTH_CHECK_TIME}')
-
-    def _daily_update(self):
-        """Perform daily data update"""
-        print(
-            f'\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Daily update started'
-        )
-
-        try:
-            success = self._perform_full_update(force_fetch=True)
-            if success:
-                print(
-                    f'[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✓ Daily update completed'
-                )
-            else:
-                print(
-                    f'[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ Daily update failed'
-                )
-
-        except Exception as e:
-            print(
-                f'[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ Daily update error: {e}'
-            )
-
-    def _health_check(self):
-        """Weekly health check"""
-        print(f'\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Health check')
-
-        status = self.get_status()
-        print(f'  Index loaded: {status['index_loaded']}')
-        print(f'  Total items: {status['total_items']}')
-        print(f'  Last rebuild: {status['last_rebuild']}')
-
-        # Check data freshness
-        if os.path.exists(HTML_FILE):
-            file_age = datetime.now() - datetime.fromtimestamp(
-                os.path.getmtime(HTML_FILE)
-            )
-            print(f'  Data age: {file_age.days} days, {file_age.seconds//3600} hours')
-
-            if file_age > timedelta(days=7):
-                print('  ⚠  Data is older than 7 days')
-
-    def _should_update_data(self):
-        """Check if data is older than 24 hours"""
-        if not os.path.exists(HTML_FILE):
-            return True
-
-        file_time = datetime.fromtimestamp(os.path.getmtime(HTML_FILE))
-        return datetime.now() - file_time > timedelta(hours=24)
-
-    def _keep_alive(self):
-        """Keep service running with simple input handling"""
-        print('\n' + '=' * 60)
-        print('SERVICE RUNNING')
-        print('=' * 60)
-        print('Commands:')
-        print('  s - Show service status')
-        print('  u - Manually trigger update')
-        print('  q - Stop the service')
-        print('=' * 60)
-        print('\nEnter command (s/u/q): ', end='', flush=True)
-
-        try:
-            while self.is_running:
-                # Run scheduled tasks
-                schedule.run_pending()
-                
-                # Simple non-blocking input check
-                try:
-                    import msvcrt  # Windows
-                    if msvcrt.kbhit():
-                        command = msvcrt.getch().decode('utf-8').lower()
-                        print(command)  # Echo the character
-                        
-                        if command == 's':
-                            self._show_status()
-                            print('\nEnter command (s/u/q): ', end='', flush=True)
-                        elif command == 'u':
-                            print('\nManual update triggered...')
-                            self._daily_update()
-                            print('\nEnter command (s/u/q): ', end='', flush=True)
-                        elif command == 'q':
-                            print('\nShutting down...')
-                            self.stop()
-                            break
-                            
-                except ImportError:
-                    try:
-                        import sys
-                        import select
-                        
-                        # Unix/Linux/Mac
-                        if select.select([sys.stdin], [], [], 0)[0]:
-                            command = sys.stdin.read(1).lower()
-                            
-                            if command == 's':
-                                self._show_status()
-                                print('\nEnter command (s/u/q): ', end='', flush=True)
-                            elif command == 'u':
-                                print('\nManual update triggered...')
-                                self._daily_update()
-                                print('\nEnter command (s/u/q): ', end='', flush=True)
-                            elif command == 'q':
-                                print('\nShutting down...')
-                                self.stop()
-                                break
-                    except:
-                        # Fallback: just sleep if input methods fail
-                        pass
-                
-                time.sleep(0.1)  # Small sleep to prevent CPU overuse
-
-        except KeyboardInterrupt:
-            print('\n\nShutdown requested via Ctrl+C...')
-            self.stop()
-
-    def _show_status(self):
-        """Show current status"""
-        status = self.get_status()
-        print('\n' + '=' * 40)
-        print('CURRENT STATUS')
-        print('=' * 40)
-        print(f'Service running: {'Yes' if status['running'] else 'No'}')
-        print(f'Index loaded: {'Yes' if status['index_loaded'] else 'No'}')
-        print(f'Total items: {status['total_items']}')
-        print(f'Last rebuild: {status['last_rebuild'] or 'Never'}')
-        print(f'Development mode: {status['development_mode']}')
-        print('=' * 40)
-
-    def stop(self):
-        """Stop the service"""
-        self.is_running = False
-        print('\nService stopped.')
-
-    def get_status(self):
-        """Get service status"""
-        index_status = self.search_engine.get_index_status()
-
-        return {
-            'running': self.is_running,
-            'index_loaded': index_status['loaded'],
-            'total_items': index_status['total_items'],
-            'last_rebuild': index_status['last_rebuild'],
-            'development_mode': DEVELOPMENT_MODE,
+class ServiceManager:
+    """Production service manager for Warframe Buddy Discord Bot"""
+    
+    def __init__(self, config_path: str = None):
+        self.base_dir = Path(__file__).parent.parent
+        self.pid_file = self.base_dir / 'warframe_buddy.pid'
+        self.log_file = self.base_dir / 'logs' / 'bot_service.log'
+        self.bot_process = None
+        self.running = False
+        self.config = self._load_config(config_path)
+        
+        # Setup logging
+        self._setup_logging()
+        self.logger = logging.getLogger('ServiceManager')
+    
+    def _load_config(self, config_path: Optional[str]) -> Dict[str, Any]:
+        """Load service configuration"""
+        default_config = {
+            'bot_command': [sys.executable, '-m', 'interfaces.discord_bot'],
+            'working_dir': str(self.base_dir),
+            'environment': {
+                'PYTHONPATH': str(self.base_dir),
+                'PYTHONUNBUFFERED': '1',
+            },
+            'restart_on_crash': True,
+            'restart_delay': 5,
+            'max_restarts': 10,
+            'health_check_interval': 60,
         }
+        
+        # Load from file if provided
+        if config_path and os.path.exists(config_path):
+            try:
+                import json
+                with open(config_path, 'r') as f:
+                    file_config = json.load(f)
+                    default_config.update(file_config)
+            except Exception as e:
+                print(f'Warning: Could not load config: {e}')
+        
+        return default_config
+    
+    def _setup_logging(self):
+        """Setup comprehensive logging"""
+        log_dir = self.base_dir / 'logs'
+        log_dir.mkdir(exist_ok=True)
+        
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(self.log_file),
+                logging.StreamHandler(sys.stdout)
+            ]
+        )
+    
+    def start(self, foreground: bool = False):
+        """Start the bot service"""
+        if self.is_running():
+            self.logger.error('Service is already running')
+            return False
+        
+        self.logger.info('Starting Warframe Buddy Discord Bot service...')
+        
+        if foreground:
+            return self._run_foreground()
+        else:
+            return self._run_background()
+    
+    def _run_foreground(self):
+        """Run in foreground (for testing/development)"""
+        try:
+            self.running = True
+            
+            # Setup signal handlers
+            signal.signal(signal.SIGINT, self._signal_handler)
+            signal.signal(signal.SIGTERM, self._signal_handler)
+            
+            # Run the bot directly
+            self.logger.info('Running bot in foreground mode...')
+            from interfaces.discord_bot import WarframeBuddyDiscordBot
+            bot = WarframeBuddyDiscordBot()
+            bot.run()
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f'Failed to run bot: {e}')
+            return False
+    
+    def _run_background(self):
+        """Run as background daemon"""
+        try:
+            # Create PID file
+            with open(self.pid_file, 'w') as f:
+                f.write(str(os.getpid()))
+            
+            # Fork to daemonize
+            if os.fork():
+                sys.exit(0)
+            
+            # Become session leader
+            os.setsid()
+            
+            # Second fork
+            if os.fork():
+                sys.exit(0)
+            
+            # Change working directory
+            os.chdir(self.config['working_dir'])
+            
+            # Close standard file descriptors
+            sys.stdout.flush()
+            sys.stderr.flush()
+            with open('/dev/null', 'r') as devnull:
+                os.dup2(devnull.fileno(), sys.stdin.fileno())
+            with open('/dev/null', 'a+') as devnull:
+                os.dup2(devnull.fileno(), sys.stdout.fileno())
+                os.dup2(devnull.fileno(), sys.stderr.fileno())
+            
+            # Setup environment
+            env = os.environ.copy()
+            env.update(self.config['environment'])
+            
+            # Start bot process
+            self.running = True
+            restart_count = 0
+            
+            while self.running and restart_count < self.config['max_restarts']:
+                try:
+                    self.logger.info(f'Starting bot process (attempt {restart_count + 1})')
+                    
+                    self.bot_process = subprocess.Popen(
+                        self.config['bot_command'],
+                        cwd=self.config['working_dir'],
+                        env=env,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        universal_newlines=True,
+                        bufsize=1
+                    )
+                    
+                    # Log bot output in separate thread
+                    log_thread = threading.Thread(
+                        target=self._log_process_output,
+                        args=(self.bot_process,),
+                        daemon=True
+                    )
+                    log_thread.start()
+                    
+                    # Monitor process
+                    while self.running:
+                        return_code = self.bot_process.poll()
+                        if return_code is not None:
+                            self.logger.warning(f'Bot process exited with code {return_code}')
+                            
+                            if self.config['restart_on_crash'] and self.running:
+                                restart_count += 1
+                                self.logger.info(f'Restarting in {self.config['restart_delay']} seconds...')
+                                time.sleep(self.config['restart_delay'])
+                                break
+                            else:
+                                self.running = False
+                                break
+                        
+                        time.sleep(1)
+                    
+                except Exception as e:
+                    self.logger.error(f'Bot process error: {e}')
+                    if self.running and self.config['restart_on_crash']:
+                        restart_count += 1
+                        time.sleep(self.config['restart_delay'])
+                    else:
+                        break
+            
+            self.stop()
+            return True
+            
+        except Exception as e:
+            self.logger.error(f'Failed to start background service: {e}')
+            return False
+    
+    def _log_process_output(self, process):
+        """Log bot process output"""
+        for line in iter(process.stdout.readline, ''):
+            if line:
+                self.logger.info(f'[BOT] {line.strip()}')
+    
+    def stop(self):
+        """Stop the bot service"""
+        self.logger.info('Stopping Warframe Buddy service...')
+        self.running = False
+        
+        if self.bot_process:
+            try:
+                self.logger.info('Sending SIGTERM to bot process...')
+                self.bot_process.terminate()
+                
+                # Wait for graceful shutdown
+                for _ in range(10):
+                    if self.bot_process.poll() is not None:
+                        break
+                    time.sleep(1)
+                
+                # Force kill if still running
+                if self.bot_process.poll() is None:
+                    self.logger.warning('Force killing bot process...')
+                    self.bot_process.kill()
+                
+                self.bot_process = None
+                
+            except Exception as e:
+                self.logger.error(f'Error stopping process: {e}')
+        
+        # Remove PID file
+        if self.pid_file.exists():
+            self.pid_file.unlink()
+        
+        self.logger.info('Service stopped')
+    
+    def restart(self):
+        """Restart the bot service"""
+        self.logger.info('Restarting service...')
+        self.stop()
+        time.sleep(2)
+        return self.start()
+    
+    def status(self):
+        """Get service status"""
+        if self.pid_file.exists():
+            try:
+                with open(self.pid_file, 'r') as f:
+                    pid = int(f.read().strip())
+                
+                # Check if process is running
+                try:
+                    os.kill(pid, 0)
+                    return {
+                        'status': 'running',
+                        'pid': pid,
+                        'pid_file': str(self.pid_file),
+                        'uptime': self._get_uptime(pid)
+                    }
+                except OSError:
+                    return {'status': 'pid_file_exists_but_process_dead'}
+            
+            except Exception as e:
+                return {'status': 'error', 'error': str(e)}
+        
+        return {'status': 'stopped'}
+    
+    def _get_uptime(self, pid: int) -> Optional[str]:
+        """Get process uptime"""
+        try:
+            # Read process start time from /proc
+            with open(f'/proc/{pid}/stat', 'r') as f:
+                stats = f.read().split()
+                start_time = int(stats[21])
+            
+            # Calculate uptime
+            with open('/proc/uptime', 'r') as f:
+                uptime_seconds = float(f.read().split()[0])
+            
+            boot_time = time.time() - uptime_seconds
+            process_start = boot_time + start_time / 100
+            uptime = time.time() - process_start
+            
+            # Format uptime
+            hours, remainder = divmod(int(uptime), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            if hours > 0:
+                return f'{hours}h {minutes}m'
+            elif minutes > 0:
+                return f'{minutes}m {seconds}s'
+            else:
+                return f'{seconds}s'
+                
+        except:
+            return None
+    
+    def is_running(self) -> bool:
+        """Check if service is running"""
+        status = self.status()
+        return status.get('status') == 'running'
+    
+    def _signal_handler(self, signum, frame):
+        """Handle termination signals"""
+        self.logger.info(f'Received signal {signum}, shutting down...')
+        self.stop()
+        sys.exit(0)
+    
+    def logs(self, lines: int = 50, follow: bool = False):
+        """Show service logs"""
+        if not self.log_file.exists():
+            print('No log file found')
+            return
+        
+        try:
+            if follow:
+                # Tail -f like behavior
+                import subprocess
+                subprocess.run(['tail', '-f', str(self.log_file)])
+            else:
+                # Show last N lines
+                with open(self.log_file, 'r') as f:
+                    all_lines = f.readlines()
+                    for line in all_lines[-lines:]:
+                        print(line, end='')
+        except Exception as e:
+            print(f'Error reading logs: {e}')
 
 
-# Simple command-line interface
-if __name__ == '__main__':
+# Command Line Interface
+def main():
     import argparse
-
-    parser = argparse.ArgumentParser(description='Warframe Data Service')
-    parser.add_argument(
-        '--no-schedule', action='store_true', help='Run without scheduled updates'
-    )
-    parser.add_argument(
-        '--force-update',
-        action='store_true',
-        help='Force a full data update on startup',
-    )
-
+    
+    parser = argparse.ArgumentParser(description='Warframe Buddy Discord Bot Service Manager')
+    parser.add_argument('action', choices=['start', 'stop', 'restart', 'status', 'logs', 'run'],
+                       help='Action to perform')
+    parser.add_argument('--foreground', '-f', action='store_true',
+                       help='Run in foreground (for debugging)')
+    parser.add_argument('--config', '-c', help='Configuration file path')
+    parser.add_argument('--lines', '-n', type=int, default=50,
+                       help='Number of log lines to show (default: 50)')
+    parser.add_argument('--follow', action='store_true',
+                       help='Follow log output')
+    
     args = parser.parse_args()
+    
+    manager = ServiceManager(args.config)
+    
+    if args.action == 'start':
+        if args.foreground:
+            manager.start(foreground=True)
+        else:
+            manager.start()
+    
+    elif args.action == 'stop':
+        manager.stop()
+    
+    elif args.action == 'restart':
+        manager.restart()
+    
+    elif args.action == 'status':
+        status = manager.status()
+        print(f'Status: {status['status']}')
+        if 'pid' in status:
+            print(f'PID: {status['pid']}')
+        if 'uptime' in status:
+            print(f'Uptime: {status['uptime']}')
+        if 'error' in status:
+            print(f'Error: {status['error']}')
+    
+    elif args.action == 'logs':
+        manager.logs(lines=args.lines, follow=args.follow)
+    
+    elif args.action == 'run':
+        # Direct run (for systemd service)
+        manager.start(foreground=True)
 
-    # Create and start service
-    service = WarframeDataService()
 
-    # Handle arguments
-    if args.force_update:
-        print('\nForce update requested...')
-        service._perform_full_update(force_fetch=True)
-
-    if args.no_schedule:
-        print('\nRunning without scheduler (development mode)')
-        service.DEVELOPMENT_MODE = True
-
-    service.start()
+if __name__ == '__main__':
+    main()
