@@ -146,7 +146,7 @@ Results:
 - [x] Add Discord bot integration
 - [ ] Add Flask web interface
 - [ ] Add Telegram bot integration
-- [ ] Refactor service manager for Linux deployment
+- [x] Refactor service manager for Linux deployment
 - [ ] Docker containerization
 - [ ] User favorites and history
 
