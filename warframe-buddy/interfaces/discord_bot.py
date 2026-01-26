@@ -3,11 +3,13 @@ import discord
 from discord.ext import commands
 import asyncio
 import textwrap
+from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from search_engine import WarframeSearchEngine
 from config import COMMAND_PREFIX
+from services.warframe_api import WarframeAPI
 
 
 class WarframeBuddyDiscordBot:
@@ -28,6 +30,10 @@ class WarframeBuddyDiscordBot:
         
         self.setup_error_handling()
         self.setup_commands()
+        
+        self.warframe_api = WarframeAPI()
+    
+    # ==== BASE SETUP ====
     
     def setup_error_handling(self):
         """Set up error handlers for commands"""
@@ -172,54 +178,55 @@ class WarframeBuddyDiscordBot:
                 # Show interactive display
                 await self.display_interactive_search(ctx, selected_item, results)
 
-        @self.bot.command(name='best', help='Show best farming locations for an item')
+        @self.bot.command(name='best', help='Show best farming locations with real-time strategy')
         async def best(ctx, *, search_query: str = None):
-            """Show best drop locations"""
-            # Currently useless, ?search shows all necessary info 
-            # TODO Refactor to real-time strategic guidance
-            
+            """Show best drop locations with current opportunities"""
             if not search_query:
                 await ctx.send(f'❌ Please specify an item: `{COMMAND_PREFIX}best "forma"`')
                 return
             
             async with ctx.typing():
-                # Use fuzzy selector to get item name
+                # 1. Get item info (existing logic)
                 selected_item = await self.fuzzy_select_item(ctx, search_query)
                 if not selected_item:
-                    return  # Error already handled
+                    return
+                
+                if not self.search_engine:
+                    await ctx.send(f'⚠️ Search engine not loaded. Use `{COMMAND_PREFIX}load` first.')
+                    return
                 
                 summary = self.search_engine.get_item_summary(selected_item)
-
+                
                 if summary['total_sources'] == 0:
                     await ctx.send(f'❌ No drops found for **{selected_item}**')
                     return
                 
+                # 2. Get real-time game state
+                game_state = await self._get_game_state()
+                
+                # Get relic tiers BOTH from all results AND from best_source
+                relic_tiers = self._get_relic_tiers_for_item(selected_item)
+                
+                # Also extract tier directly from best_source if it's a relic
                 best_source = summary['best_source']
-                best_chance = summary['best_chance'] * 100
-                
-                response = f'**{selected_item}** - Best farming spot:\n'
-                response += f'**{best_chance:.1f}%** chance from '
-
-                if best_source['source_type'] == 'Missions':
-                    response += f'**{best_source.get('mission_name')}** on {best_source.get('planet_name')}'
-                    if best_source.get('rotation'):
-                        response += f'(Rotation {best_source.get('rotation')})'
-                
-                elif best_source['source_type'] == 'Relics':
-                    response += f'**{best_source.get('relic_tier')} {best_source.get('relic_name')} {best_source.get('relic_refinement')}**'
-                
-                elif best_source['source_type'] == 'Sorties':
-                    response += f'**Sortie**'
+                if best_source['source_type'] == 'Relics':
+                    best_tier = best_source.get('relic_tier', '')
+                    if best_tier and ' ' in best_tier:
+                        best_tier = best_tier.split()[0]
                     
-                elif best_source['source_type'] == 'Bounties':
-                    response += f'**{best_source.get('mission_type')}** on {best_source.get('planet_name')} / {best_source.get('mission_name')}'
-
-                response += f'\n\n📊 Found {summary['total_sources']} total sources '
-                response += f'({len(summary.get('missions', []))} missions, '
-                response += f'{len(summary.get('relics', []))} relics, '
-                response += f'{len(summary.get('sorties', []))} sortie, '
-                response += f'{len(summary.get('bounties', []))} bounties)'
-
+                    if best_tier and best_tier not in relic_tiers:
+                        relic_tiers.append(best_tier)
+                
+                # 4. Build enhanced response
+                response = self._build_best_response(
+                    item_name=selected_item,
+                    best_source=summary['best_source'],
+                    best_chance=summary['best_chance'] * 100,  # Convert to percentage
+                    game_state=game_state,
+                    relic_tiers=relic_tiers
+                )
+                
+                # 5. Send response
                 await ctx.send(response)
         
         @self.bot.command(name='load', help='Load search indexes')
@@ -272,6 +279,10 @@ class WarframeBuddyDiscordBot:
             """Simple greeting to the user"""
             await ctx.send('Hello! 😊')
         
+        @self.bot.command(name='debug')
+        async def debug(ctx):
+            await self.debug_fissures(ctx)
+        
         @self.bot.event
         async def on_ready():
             """Called when bot connects"""
@@ -293,6 +304,7 @@ class WarframeBuddyDiscordBot:
             except:
                 print(f'⚠️  Could not auto-load indexes. Users need to run {COMMAND_PREFIX}load')
     
+    # ==== SHARED FUNCTIONS ====
     
     async def fuzzy_select_item(self, ctx, search_query: str) -> str | None:
         """
@@ -356,6 +368,8 @@ class WarframeBuddyDiscordBot:
         except asyncio.TimeoutError:
             await ctx.send('⏰ Selection timed out!')
             return None
+    
+    # ==== ?search ====
     
     async def display_interactive_search(self, ctx, item_name: str, results: list):
         """Interactive tabbed search display with in-message updates"""
@@ -456,7 +470,7 @@ class WarframeBuddyDiscordBot:
                 except:
                     pass
                 break
-
+    
     def _group_results_by_source(self, results: list) -> dict:
         """Group results by source type and sort by chance"""
         grouped = {}
@@ -654,7 +668,432 @@ class WarframeBuddyDiscordBot:
             embed.set_field_at(0, name=field.name, value=new_value, inline=field.inline)
         
         return embed
-       
+    
+    # ==== ?best ====
+    
+    def _analyze_fissures_for_item(self, fissures: List[Dict], item_relics: List[str]) -> Dict:
+        """Find active fissures relevant to an item's relic tiers"""
+        relevant_fissures = []
+        
+        # Normalize relic tiers to lowercase
+        normalized_relics = [tier.lower() for tier in item_relics]
+        
+        for fissure in fissures:
+            fissure_tier = fissure.get('tier', '').lower()
+            
+            # Check if this fissure tier matches any relic tier
+            if fissure_tier in normalized_relics:
+                # Check if fissure is still active (not expired)
+                time_left = self._time_remaining(fissure.get('expiry', ''))
+                if time_left > 0:  # ONLY include active fissures
+                    relevant_fissures.append({
+                        **fissure,
+                        '_time_left': time_left  # Store calculated time
+                    })
+        
+        # Sort by time remaining (soonest first)
+        relevant_fissures.sort(key=lambda f: f['_time_left'])
+        
+        return {
+            'count': len(relevant_fissures),
+            'fissures': relevant_fissures[:6],  # Increased to 6 for better display
+            'expiring_soon': [f for f in relevant_fissures 
+                            if f['_time_left'] < 600]  # 10 min
+        }
+    
+    def _get_next_fissure_rotation(self) -> str:
+        """Predict when new fissures will appear"""
+        from datetime import datetime, timedelta
+        
+        now = datetime.now()
+        next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+        
+        minutes_to_next = int((next_hour - now).total_seconds() / 60)
+        
+        if minutes_to_next < 10:
+            return 'within 10 minutes'
+        elif minutes_to_next < 30:
+            return f'in {minutes_to_next} minutes'
+        else:
+            # Warframe fissures refresh hourly
+            next_time = next_hour.strftime('%H:%M')
+            return f'at {next_time}'
+    
+    def _time_remaining(self, expiry_str: str) -> int:
+        """Calculate seconds until expiry - with better error handling"""
+        try:
+            # Clean up the date string
+            if 'Z' in expiry_str:
+                expiry_str = expiry_str.replace('Z', '+00:00')
+            
+            # Parse the date
+            expiry = datetime.fromisoformat(expiry_str)
+            
+            # Make sure we're not dealing with a date way in the future (API issue)
+            now = datetime.now(timezone.utc)
+            
+            # If expiry is more than 48 hours in the future, it's probably wrong data
+            max_reasonable = now + timedelta(hours=48)
+            if expiry > max_reasonable:
+                print(f'[WARN] Suspicious future date: {expiry} (now: {now})')
+                # Assume it's a 1-hour fissure instead
+                return 3600  # Default to 1 hour remaining
+            
+            # If expiry is in the past (negative), return 0
+            if expiry < now:
+                return 0
+            
+            # Calculate actual difference
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=timezone.utc)
+                
+            delta = expiry - now
+            return max(0, int(delta.total_seconds()))
+            
+        except Exception as e:
+            print(f'[ERROR] Date parsing failed: {e}, input: {expiry_str}')
+            # Default to a reasonable fissure duration
+            return 1800  # 30 minutes as fallback
+    
+    def _format_time(self, seconds: int) -> str:
+        """Format seconds to human-readable time - IMPROVED"""
+        if seconds <= 0:
+            return '0s'
+        
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+        
+        if hours > 0:
+            return f'{hours}h {minutes}m'
+        elif minutes > 0:
+            if secs > 0 and minutes < 5:  # Show seconds for short times
+                return f'{minutes}m {secs}s'
+            return f'{minutes}m'
+        else:
+            return f'{secs}s'
+    
+    def _is_item_in_sortie(self, item_name: str, sortie_data: Dict) -> bool:
+        """Check if item is in sortie reward pool"""
+        reward_pool = sortie_data.get('rewardPool', [])
+        # Simple contains check - you might need to normalize item names
+        return any(item_name.lower() in reward.lower() for reward in reward_pool)
+    
+    def _get_relic_tiers_for_item(self, item_name: str) -> List[str]:
+        """Extract relic tiers for an item - FIXED VERSION"""
+        if not self.search_engine:
+            return []
+        
+        results = self.search_engine.search_item(item_name)
+        relic_tiers = set()
+        
+        for drop in results:
+            if drop.get('source_type') == 'Relics':
+                # Try to get tier from various possible fields
+                tier = (
+                    drop.get('relic_tier') or 
+                    drop.get('tier') or 
+                    drop.get('relic_name', '').split()[0] if ' ' in drop.get('relic_name', '') else ''
+                )
+                
+                if tier:
+                    # Normalize: "Axi", "axi", "AXI" -> "axi"
+                    relic_tiers.add(tier.lower())
+        
+        return list(relic_tiers)
+    
+    async def _get_game_state(self) -> Dict:
+        """Fetch all relevant game state data"""
+        try:
+            fissures, sortie, nightwave = await asyncio.gather(
+                self.warframe_api.get_fissures(),
+                self.warframe_api.get_sortie(),
+                self.warframe_api.get_nightwave()
+            )
+            
+            return {
+                'fissures': fissures or [],
+                'sortie': sortie or {},
+                'nightwave': nightwave or {}
+            }
+        except Exception as e:
+            logger.error(f'Failed to fetch game state: {e}')
+            return {}
+    
+    def _build_best_response(self, item_name: str, best_source: Dict, 
+                       best_chance: float, game_state: Dict, relic_tiers: List[str]) -> str:
+        """Build the enhanced ?best response - IMPROVED DISPLAY"""
+        
+        # 1. Best source header
+        response = f'**{item_name}**\n\n'
+        response += f'**BEST SINGLE SOURCE:** {best_chance:.1f}% chance\n'
+        
+        # Format source details
+        source_text = self._format_source(best_source)
+        response += f'{source_text}\n\n'
+        
+        # 2. Current opportunities section
+        fissure_info = self._analyze_fissures_for_item(game_state.get('fissures', []), relic_tiers)
+        
+        if fissure_info['count'] == 0:
+            next_rotation = self._get_next_fissure_rotation()
+            response += f'**Next rotation:** {next_rotation}\n'
+        
+        if fissure_info['count'] > 0:
+            response += f'**ACTIVE FISSURES:** {fissure_info['count']} available\n'
+            
+            # Group by mission type and show most relevant
+            mission_types = {}
+            
+            for fissure in fissure_info['fissures']:
+                mission_type = fissure.get('missionType', 'Mission')
+                if mission_type not in mission_types:
+                    mission_types[mission_type] = []
+                
+                node = fissure.get('node', 'Unknown')
+                time_left = fissure['_time_left']
+                
+                # Extract planet name
+                planet = 'Unknown'
+                if '(' in node and ')' in node:
+                    planet = node.split('(')[1].split(')')[0]
+                
+                mission_types[mission_type].append({
+                    'planet': planet,
+                    'time': time_left,
+                    'formatted': self._format_time(time_left)
+                })
+            
+            # Show mission types in order: Fast → Medium → Slow
+            fast_types = ['Capture', 'Exterminate', 'Rescue', 'Sabotage']
+            medium_types = ['Mobile Defense', 'Spy', 'Hijack']
+            slow_types = ['Defense', 'Survival', 'Interception', 'Excavation']
+            
+            displayed = 0
+            max_to_show = 3  # Show max 3 mission types
+            
+            # Show fast missions first
+            for mission_type in fast_types:
+                if mission_type in mission_types and displayed < max_to_show:
+                    missions = mission_types[mission_type]
+                    response += f'**{mission_type}:** '
+                    planets = [m['planet'] for m in missions[:2]]
+                    response += ', '.join(planets)
+                    if len(missions) > 2:
+                        response += f' (+{len(missions)-2})'
+                    # Show time for soonest one
+                    soonest = min(missions, key=lambda m: m['time'])
+                    response += f' ({soonest['formatted']})\n'
+                    displayed += 1
+            
+            # Show medium if we haven't shown enough
+            if displayed < max_to_show:
+                for mission_type in medium_types:
+                    if mission_type in mission_types and displayed < max_to_show:
+                        missions = mission_types[mission_type]
+                        response += f'**{mission_type}:** '
+                        planets = [m['planet'] for m in missions[:2]]
+                        response += ', '.join(planets)
+                        if len(missions) > 2:
+                            response += f' (+{len(missions)-2})'
+                        soonest = min(missions, key=lambda m: m['time'])
+                        response += f' ({soonest['formatted']})\n'
+                        displayed += 1
+            
+            # Show slow if we haven't shown enough
+            if displayed < max_to_show:
+                for mission_type in slow_types:
+                    if mission_type in mission_types and displayed < max_to_show:
+                        missions = mission_types[mission_type]
+                        response += f'**{mission_type}:** '
+                        planets = [m['planet'] for m in missions[:2]]
+                        response += ', '.join(planets)
+                        if len(missions) > 2:
+                            response += f' (+{len(missions)-2})'
+                        soonest = min(missions, key=lambda m: m['time'])
+                        response += f' ({soonest['formatted']})\n'
+                        displayed += 1
+            
+            # Show expiry warning if any are ending soon
+            if fissure_info['expiring_soon']:
+                soonest = min(fissure_info['expiring_soon'], key=lambda f: f['_time_left'])
+                response += f'**Ending soon:** {self._format_time(soonest['_time_left'])} left\n'
+        
+        else:
+            # No active fissures - check if any will spawn soon
+            response += '**No active fissures** for this tier right now\n'
+            response += 'Check back in 30-60 minutes for new rotations\n'
+        
+        # 3. Sortie check
+        sortie = game_state.get('sortie', {})
+        if self._is_item_in_sortie(item_name, sortie):
+            response += f"\n**TODAY'S SORTIE:** {sortie.get('boss', 'Sortie')}\n"
+            response += '   Contains this item! (28% chance)\n'
+        
+        response += '\n'
+        
+        # 4. Strategy - IMPROVED CALCULATIONS
+        response += '**STRATEGY:**\n'
+        
+        if best_chance > 0:
+            # Better probability calculations
+            import math
+            
+            chance_decimal = best_chance / 100.0
+            
+            # Runs for 50% confidence
+            runs_50 = math.ceil(math.log(0.5) / math.log(1 - chance_decimal)) if chance_decimal < 1 else 1
+            # Runs for 90% confidence  
+            runs_90 = math.ceil(math.log(0.1) / math.log(1 - chance_decimal)) if chance_decimal < 1 else 1
+            
+            if best_chance < 2.0:
+                response += f'**Very Rare:** {best_chance:.1f}% chance\n'
+                response += f'• {runs_50} runs for 50% chance\n'
+                response += f'• {runs_90}+ runs for reliable drop\n'
+            elif best_chance < 10.0:
+                response += f'**Uncommon:** {best_chance:.1f}% chance\n'
+                response += f'• {runs_50} runs: 50% chance\n'
+                response += f'• {runs_90} runs: 90% chance\n'
+            else:
+                response += f'**Common:** {best_chance:.1f}% chance\n'
+                response += f'• {runs_50} runs: 50% chance\n'
+                response += f'• {runs_90} runs: 90% chance\n'
+        
+        # 5. Actionable tips
+        response += '\n**ACTION PLAN:**\n'
+        
+        if fissure_info['count'] > 0:
+            # Count fast missions
+            fast_count = sum(1 for f in fissure_info['fissures'] 
+                            if f.get('missionType') in ['Capture', 'Exterminate', 'Rescue', 'Sabotage'])
+            
+            if fast_count > 0:
+                response += f'1. Run {fast_count} fast fissures first\n'
+                response += '2. Refine relics to Radiant\n'
+                response += '3. Bring a squad for 4x chances\n'
+            else:
+                response += '1. Pick shortest available mission\n'
+                response += '2. Consider relic refinement\n'
+                response += '3. Farm in squad if possible\n'
+        else:
+            response += '1. Wait for new fissure rotation\n'
+            response += '2. Farm void traces in meantime\n'
+            response += '3. Check other drop sources\n'
+        
+        # Add relic-specific tips
+        if best_source.get('source_type') == 'Relics':
+            refinement = best_source.get('relic_refinement', 'Intact')
+            if refinement == 'Intact':
+                response += '\n**Upgrade:** Refine to Radiant for **{:.1f}% → {:.1f}%** chance'.format(
+                    best_chance, min(100, best_chance * 2)
+                )
+        
+        return response
+    
+    def _format_source(self, source: Dict) -> str:
+        """Format a source for display - more detailed"""
+        source_type = source.get('source_type', 'Unknown')
+        
+        if source_type == 'Missions':
+            details = f'**{source.get('planet_name', '?')}** - '
+            details += f'*{source.get('mission_name', '?')}*\n'
+            details += f'   Type: {source.get('mission_type', '?')}'
+            rotation = source.get('rotation')
+            if rotation:
+                details += f' • Rotation: {rotation}'
+            return details
+        
+        elif source_type == 'Relics':
+            details = f'**{source.get('relic_tier', '?')} {source.get('relic_name', '?')}**\n'
+            refinement = source.get('relic_refinement', 'Intact')
+            if refinement != 'Intact':
+                details += f'   Refinement: {refinement}'
+            else:
+                details += f'   (Can refine to Radiant for better chance)'
+            return details
+        
+        elif source_type == 'Bounties':
+            details = f'**{source.get('planet_name', '?')}** - '
+            details += f'*{source.get('mission_name', '?')}*\n'
+            bounty_type = source.get('mission_type')
+            if bounty_type:
+                details += f'   Bounty: {bounty_type}'
+            return details
+        
+        else:  # Sorties
+            return '**Sortie Mission Reward**\n   (Daily completion, 28% chance)'
+    
+    # ==== DEBUG ====
+    
+    async def debug_fissures(self, ctx):
+        """Debug command to check fissure data with system time comparison"""
+        fissures = await self.warframe_api.get_fissures()
+        
+        if not fissures:
+            await ctx.send('❌ No fissure data received')
+            return
+        
+        # Get current time
+        now_utc = datetime.now(timezone.utc)
+        now_local = datetime.now()
+        
+        embed = discord.Embed(
+            title='🔧 System & Fissure Debug', 
+            color=discord.Color.gold(),
+            description=f'**System UTC:** {now_utc}\n**System Local:** {now_local}'
+        )
+        
+        # Check first 3 fissures
+        for i, fissure in enumerate(fissures[:3], 1):
+            tier = fissure.get('tier', 'N/A')
+            node = fissure.get('node', 'N/A')
+            mission = fissure.get('missionType', 'N/A')
+            expiry_raw = fissure.get('expiry', 'N/A')
+            
+            # Parse the date
+            try:
+                if 'Z' in expiry_raw:
+                    expiry_str = expiry_raw.replace('Z', '+00:00')
+                    expiry = datetime.fromisoformat(expiry_str)
+                    
+                    # Calculate difference
+                    if expiry.tzinfo is None:
+                        expiry = expiry.replace(tzinfo=timezone.utc)
+                    
+                    diff = expiry - now_utc
+                    days_diff = diff.days
+                    seconds_diff = diff.total_seconds()
+                    
+                    status = '✅ FUTURE' if seconds_diff > 0 else '❌ PAST'
+                    
+                    field_value = (
+                        f'**Tier:** {tier}\n'
+                        f'**Node:** {node}\n'
+                        f'**Mission:** {mission}\n'
+                        f'**API Expiry:** {expiry_raw}\n'
+                        f'**Parsed:** {expiry}\n'
+                        f'**Status:** {status}\n'
+                        f'**Days Diff:** {days_diff} days\n'
+                        f'**Seconds:** {int(seconds_diff)}s\n'
+                        f'**Our calc:** {self._time_remaining(expiry_raw)}s'
+                    )
+                else:
+                    field_value = f'**ERROR:** Invalid date format: {expiry_raw}'
+                    
+            except Exception as e:
+                field_value = f'**ERROR:** {str(e)}\n**Raw:** {expiry_raw}'
+            
+            embed.add_field(
+                name=f'Fissure {i} ({tier})',
+                value=field_value,
+                inline=False
+            )
+        
+        await ctx.send(embed=embed)
+    
+    
     def run(self):
         """Start the Discord bot"""
         from config import DISCORD_TOKEN
