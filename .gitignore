@@ -17,6 +17,9 @@ _parsers.txt
 # Data files
 data/
 
+# Service logs
+logs/
+
 # .env files
 .env
 .env.local
