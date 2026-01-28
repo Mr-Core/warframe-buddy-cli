@@ -1,7 +1,8 @@
+import os
 import json
 from datetime import datetime
 from collections import defaultdict
-from config import INDEXED_DATA_FILE, PARSED_DATA_FILE
+from config import INDEXED_DATA_FILE, PARSED_DATA_FILE, COMMON_SEARCH_DATA_FILE
 
 
 class WarframeSearchEngine:
@@ -189,10 +190,12 @@ class WarframeSearchEngine:
     
     # ==== SEARCH METHODS ====
     
-    def search_item(self, item_name, source_type=None, **filters):
+    def search_item(self, item_name, **filters):
         """Search for exact item name"""
         if not self.search_indexes:
             raise ValueError('No indexes loaded.')
+        
+        self._most_common_search(item_name)
         
         results = self.search_indexes['item_sources'].get(item_name, [])
         
@@ -236,6 +239,8 @@ class WarframeSearchEngine:
             'best_chance': 0,
             'best_source': None
         }
+        
+        self._most_common_search(item_name)
         
         all_sources = self.search_indexes['item_sources'].get(item_name, [])
         if not all_sources:
@@ -309,3 +314,25 @@ class WarframeSearchEngine:
         summary_sorted['bounties'].sort(key=lambda x: x.get('chance', 0), reverse=True)
         
         return summary_sorted
+
+    def _most_common_search(self, item_name):
+        data = {}
+        
+        if os.path.isfile(COMMON_SEARCH_DATA_FILE):
+            try:
+                with open(COMMON_SEARCH_DATA_FILE, 'r') as f:
+                    data = json.load(f)
+            
+            except ValueError:
+                data = {}
+            
+            except Exception as e:
+                print(f'An error occurred: {e}')
+
+        if item_name not in data:
+            data[item_name] = 1
+        else:
+            data[item_name] += 1
+
+        with open(COMMON_SEARCH_DATA_FILE, 'w') as f:
+            json.dump(data, f, indent=2, sort_keys=True)

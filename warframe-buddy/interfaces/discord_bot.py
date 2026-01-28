@@ -4,6 +4,7 @@ from discord.ext import commands
 import asyncio
 import textwrap
 from datetime import datetime, timezone, timedelta
+from typing import List, Dict  # Required for Linux deployment
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
