@@ -18,6 +18,4 @@ def fetch_data():
     with open(HTML_FILE, 'w', encoding='utf-8') as f:
         f.write(soup.prettify())
     
-    print(f'✓ Data saved to {HTML_FILE}')
-    
     return True
