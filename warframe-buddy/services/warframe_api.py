@@ -20,7 +20,7 @@ class WarframeAPI:
         self.cache_ttl = cache_ttl  # seconds
         self.session = None
 
-    async def _get_session(self):
+    async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session"""
         if self.session is None or self.session.closed:
             self.session = aiohttp.ClientSession(
@@ -52,27 +52,27 @@ class WarframeAPI:
             logger.error(f"API request failed: {e}")
             return {}
 
-    async def get_fissures(self) -> List[Dict]:
+    async def get_fissures(self) -> dict:
         """Get active void fissures"""
         return await self._cached_get("fissures")
 
-    async def get_sortie(self) -> Dict:
+    async def get_sortie(self) -> dict:
         """Get current sortie data"""
         return await self._cached_get("sortie")
 
-    async def get_alerts(self) -> List[Dict]:
+    async def get_alerts(self) -> dict:
         """Get active alerts"""
         return await self._cached_get("alerts")
 
-    async def get_nightwave(self) -> Dict:
+    async def get_nightwave(self) -> dict:
         """Get Nightwave challenges"""
         return await self._cached_get("nightwave")
 
-    async def get_invasions(self) -> List[Dict]:
+    async def get_invasions(self) -> dict:
         """Get active invasions"""
         return await self._cached_get("invasions")
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the session"""
         if self.session and not self.session.closed:
             await self.session.close()
