@@ -9,16 +9,16 @@ def fetch_data() -> tuple[bool, str | None]:
     try:
         response = requests.get(FETCH_URL)
         response.raise_for_status()
-        
-        response.encoding = 'utf-8'
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
+
+        response.encoding = "utf-8"
+        soup = BeautifulSoup(response.text, "html.parser")
+
         Path(HTML_FILE).parent.mkdir(parents=True, exist_ok=True)
 
-        with open(HTML_FILE, 'w', encoding='utf-8') as f:
+        with open(HTML_FILE, "w", encoding="utf-8") as f:
             f.write(soup.prettify())
 
         return True, None
-    
+
     except Exception as e:
         return False, str(e)

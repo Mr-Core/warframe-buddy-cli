@@ -23,7 +23,9 @@ class DropOrchestrator:
             EntratiLabDropParser,  # Albrecht's Laboratories
             HexBountyDropParser,
         )
-        from parsers.transient_parser import TransientDropParser  # Dynamic Location Rewards
+        from parsers.transient_parser import (
+            TransientDropParser,
+        )  # Dynamic Location Rewards
 
         self.mission_parser = MissionDropParser(self.soup)
         self.relic_parser = RelicDropParser(self.soup)
@@ -56,7 +58,7 @@ class DropOrchestrator:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return BeautifulSoup(f.read(), "html.parser")
-        
+
         except FileNotFoundError as e:
             raise FileNotFoundError(
                 f'HTML file "{file_path}" not found. '
@@ -76,12 +78,20 @@ class DropOrchestrator:
 
         # Parse Bounties
         cetus_bounty_drops, self.cetus_bounty_report = self.cetus_bounty_parser.parse()
-        solaris_bounty_drops, self.solaris_bounty_report = self.solaris_bounty_parser.parse()
-        deimos_bounty_drops, self.deimos_bounty_report = self.deimos_bounty_parser.parse()
-        zariman_bounty_drops, self.zariman_bounty_report = (self.zariman_bounty_parser.parse())
-        entrati_lab_bounty_drops, self.entrati_lab_bounty_report = (self.entrati_lab_bounty_parser.parse())
+        solaris_bounty_drops, self.solaris_bounty_report = (
+            self.solaris_bounty_parser.parse()
+        )
+        deimos_bounty_drops, self.deimos_bounty_report = (
+            self.deimos_bounty_parser.parse()
+        )
+        zariman_bounty_drops, self.zariman_bounty_report = (
+            self.zariman_bounty_parser.parse()
+        )
+        entrati_lab_bounty_drops, self.entrati_lab_bounty_report = (
+            self.entrati_lab_bounty_parser.parse()
+        )
         hex_bounty_drops, self.hex_bounty_report = self.hex_bounty_parser.parse()
-        
+
         # Parse Dynamic Location Rewards
         transient_drops, self.transient_report = self.transient_parser.parse()
 
@@ -99,17 +109,17 @@ class DropOrchestrator:
         )
 
         len_all_drops = {
-            'mission_drops': len(mission_drops),
-            'relic_drops': len(relic_drops),
-            'sortie_drops': len(sortie_drops),
-            'cetus_bounty_drops': len(cetus_bounty_drops),
-            'solaris_bounty_drops': len(solaris_bounty_drops),
-            'deimos_bounty_drops': len(deimos_bounty_drops),
-            'zariman_bounty_drops': len(zariman_bounty_drops),
-            'entrati_lab_bounty_drops': len(entrati_lab_bounty_drops),
-            'hex_bounty_drops': len(hex_bounty_drops),
-            'transient_drops': len(transient_drops),
-            'total_drops': len(self.all_drops)
+            "mission_drops": len(mission_drops),
+            "relic_drops": len(relic_drops),
+            "sortie_drops": len(sortie_drops),
+            "cetus_bounty_drops": len(cetus_bounty_drops),
+            "solaris_bounty_drops": len(solaris_bounty_drops),
+            "deimos_bounty_drops": len(deimos_bounty_drops),
+            "zariman_bounty_drops": len(zariman_bounty_drops),
+            "entrati_lab_bounty_drops": len(entrati_lab_bounty_drops),
+            "hex_bounty_drops": len(hex_bounty_drops),
+            "transient_drops": len(transient_drops),
+            "total_drops": len(self.all_drops),
         }
 
         return self.all_drops, len_all_drops
@@ -122,16 +132,16 @@ class DropOrchestrator:
         reports = {}
 
         # Use the reports already generated during parsing
-        reports['missions'] = self.mission_report
-        reports['relics'] = self.relic_report
-        reports['sorties'] = self.sortie_report
-        reports['cetus_bounty'] = self.cetus_bounty_report
-        reports['solaris_bounty'] = self.solaris_bounty_report
-        reports['deimos_bounty'] = self.deimos_bounty_report
-        reports['zariman_bounty'] = self.zariman_bounty_report
-        reports['entrati_lab_bounty'] = self.entrati_lab_bounty_report
-        reports['hex_bounty'] = self.hex_bounty_report
-        reports['transient'] = self.transient_report
+        reports["missions"] = self.mission_report
+        reports["relics"] = self.relic_report
+        reports["sorties"] = self.sortie_report
+        reports["cetus_bounty"] = self.cetus_bounty_report
+        reports["solaris_bounty"] = self.solaris_bounty_report
+        reports["deimos_bounty"] = self.deimos_bounty_report
+        reports["zariman_bounty"] = self.zariman_bounty_report
+        reports["entrati_lab_bounty"] = self.entrati_lab_bounty_report
+        reports["hex_bounty"] = self.hex_bounty_report
+        reports["transient"] = self.transient_report
 
         # Calculate overall stats based on ACTUAL data being used
         total_drops = len(self.all_drops)
@@ -151,11 +161,11 @@ class DropOrchestrator:
         if self.sortie_report:
             all_errors.extend(self.sortie_report.get("errors", []))
             all_warnings.extend(self.sortie_report.get("warnings", []))
-            
+
         if self.cetus_bounty_report:
             all_errors.extend(self.cetus_bounty_report.get("errors", []))
             all_warnings.extend(self.cetus_bounty_report.get("warnings", []))
-        
+
         if self.solaris_bounty_report:
             all_errors.extend(self.solaris_bounty_report.get("errors", []))
             all_warnings.extend(self.solaris_bounty_report.get("warnings", []))
@@ -163,19 +173,19 @@ class DropOrchestrator:
         if self.deimos_bounty_report:
             all_errors.extend(self.deimos_bounty_report.get("errors", []))
             all_warnings.extend(self.deimos_bounty_report.get("warnings", []))
-        
+
         if self.zariman_bounty_report:
             all_errors.extend(self.zariman_bounty_report.get("errors", []))
             all_warnings.extend(self.zariman_bounty_report.get("warnings", []))
-        
+
         if self.entrati_lab_bounty_report:
             all_errors.extend(self.entrati_lab_bounty_report.get("errors", []))
             all_warnings.extend(self.entrati_lab_bounty_report.get("warnings", []))
-        
+
         if self.hex_bounty_report:
             all_errors.extend(self.hex_bounty_report.get("errors", []))
             all_warnings.extend(self.hex_bounty_report.get("warnings", []))
-        
+
         if self.transient_report:
             all_errors.extend(self.transient_report.get("errors", []))
             all_warnings.extend(self.transient_report.get("warnings", []))
@@ -238,7 +248,7 @@ class DropOrchestrator:
                 )
             if len(report["sorties"]["errors"]) > max_errors:
                 print(f"  ... and {len(report['sorties']['errors']) - max_errors} more")
-        
+
         # Show cetus bounty errors
         if report["cetus_bounty"] and report["cetus_bounty"]["errors"]:
             print("\nCETUS BOUNTY ERRORS:")
@@ -262,7 +272,7 @@ class DropOrchestrator:
                 print(
                     f"  ... and {len(report['solaris_bounty']['errors']) - max_errors} more"
                 )
-        
+
         # Show deimos bounty errors
         if report["deimos_bounty"] and report["deimos_bounty"]["errors"]:
             print("\nDEIMOS BOUNTY ERRORS:")
@@ -274,7 +284,7 @@ class DropOrchestrator:
                 print(
                     f"  ... and {len(report['deimos_bounty']['errors']) - max_errors} more"
                 )
-        
+
         # Show zariman bounty errors
         if report["zariman_bounty"] and report["zariman_bounty"]["errors"]:
             print("\nZARIMAN BOUNTY ERRORS:")
@@ -286,7 +296,7 @@ class DropOrchestrator:
                 print(
                     f"  ... and {len(report['zariman_bounty']['errors']) - max_errors} more"
                 )
-                
+
         # Show entrati lab bounty errors
         if report["entrati_lab_bounty"] and report["entrati_lab_bounty"]["errors"]:
             print("\nENTRATI LAB BOUNTY ERRORS:")
@@ -298,7 +308,7 @@ class DropOrchestrator:
                 print(
                     f"  ... and {len(report['entrati_lab_bounty']['errors']) - max_errors} more"
                 )
-        
+
         # Show hex bounty errors
         if report["hex_bounty"] and report["hex_bounty"]["errors"]:
             print("\nHEX BOUNTY ERRORS:")
@@ -322,7 +332,7 @@ class DropOrchestrator:
                 print(
                     f"  ... and {len(report['transient']['errors']) - max_errors} more"
                 )
-        
+
         # Show warnings summary
         total_warnings = report["overall"]["warning_count"]
         if total_warnings > 0:
