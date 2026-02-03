@@ -11,8 +11,9 @@ _dev_alpha/
 # Art files
 _art/
 
-# List of available/created parsers
-_parsers.txt
+# Personal notes
+_discord-bot_notes.txt
+_project_notes.txt
 
 # Data files
 data/
