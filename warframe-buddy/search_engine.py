@@ -15,15 +15,13 @@ class WarframeSearchEngine:
     
     # ==== INDEX MANAGEMENT ====
     
-    def create_indexes_from_drops(self, all_drops):
+    def create_indexes_from_drops(self, all_drops) -> str:
         """
         Create indexes from drop data (used by orchestrator after parsing)
         
         Args:
             all_drops: List of drop dictionaries from parser
         """
-        print('Creating search indexes from parsed data...')
-        
         # Reset indexes
         self.search_indexes = {
             'item_sources': defaultdict(list),
@@ -83,8 +81,7 @@ class WarframeSearchEngine:
 
         self.last_rebuild = datetime.now()
         
-        print(f'✓ Indexed {len(all_drops)} drops')
-        print(f'  - Unique items: {len(self.search_indexes['item_sources'])}')
+        return f'  - Unique items: {len(self.search_indexes['item_sources'])}'
     
     def rebuild_from_parsed_file(self):
         """
@@ -106,18 +103,19 @@ class WarframeSearchEngine:
         except FileNotFoundError:
             print(f'✗ Parsed data file not found: {PARSED_DATA_FILE}')
             return False
+        
         except json.JSONDecodeError as e:
             print(f'✗ Invalid JSON in parsed data: {e}')
             return False
+        
         except KeyError:
             print('✗ Invalid parsed data format')
             return False
     
-    def save_indexes(self):
+    def save_indexes(self) -> str:
         """Save current indexes to file"""
         if not self.search_indexes:
-            print('✗ No indexes to save')
-            return False
+            return '✗ No indexes to save'
         
         serializable_indexes = {}
         for index_name, index_data in self.search_indexes.items():
@@ -136,14 +134,11 @@ class WarframeSearchEngine:
             with open(INDEXED_DATA_FILE, 'w') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             
-            print(f'✓ Saved indexes to "{INDEXED_DATA_FILE}"')
-            return True
-            
+            return f'✓ Saved indexes to "{INDEXED_DATA_FILE}"'
         except IOError as e:
-            print(f'✗ Failed to save indexes: {e}')
-            return False
+            return f'✗ Failed to save indexes: {e}'
     
-    def load_indexes(self):
+    def load_indexes(self) -> tuple[bool, str]:
         """Load indexes from file"""
         try:
             with open(INDEXED_DATA_FILE, 'r') as f:
@@ -160,18 +155,20 @@ class WarframeSearchEngine:
             if 'last_rebuild' in data and data['last_rebuild']:
                 self.last_rebuild = datetime.fromisoformat(data['last_rebuild'])
             
-            print(f'✓ Loaded indexes (created {data['created_at']})')
-            print(f'  - Unique items: {len(self.search_indexes['item_sources'])}')
-            return True
+            response = f'✓ Loaded indexes (created {data['created_at']})'
+            response += f'\n  - Unique items: {len(self.search_indexes['item_sources'])}'
+            return True, response
             
         except FileNotFoundError:
-            print(f'✗ Index file not found: {INDEXED_DATA_FILE}')
-            return False
+            response = f'✗ No index file found!'
+            response += '\nPlease run Mode 1 first to create indexes.'
+            return False, response
+        
         except json.JSONDecodeError as e:
-            print(f'✗ Invalid JSON in index file: {e}')
-            return False
+            response = f'✗ Invalid JSON in index file: {e}'
+            return False, response
     
-    def get_index_status(self):
+    def get_index_status(self) -> dict:
         """Get current index status"""
         if not self.search_indexes:
             return {
@@ -190,7 +187,7 @@ class WarframeSearchEngine:
     
     # ==== SEARCH METHODS ====
     
-    def search_item(self, item_name, **filters):
+    def search_item(self, item_name: str, **filters: dict) -> list:
         """Search for exact item name"""
         if not self.search_indexes:
             raise ValueError('No indexes loaded.')
@@ -215,7 +212,7 @@ class WarframeSearchEngine:
         
         return results
     
-    def find_matching_items(self, search_term):
+    def find_matching_items(self, search_term: str) -> list:
         """Find items matching search term (case-insensitive, partial match)"""
         search_lower = search_term.lower()
         matching = []
@@ -227,7 +224,7 @@ class WarframeSearchEngine:
         
         return matching
     
-    def get_item_summary(self, item_name):
+    def get_item_summary(self, item_name: str) -> dict:
         """Get summary for exact item name"""
         summary = {
             'item': item_name,
@@ -315,7 +312,7 @@ class WarframeSearchEngine:
         
         return summary_sorted
 
-    def _most_common_search(self, item_name):
+    def _most_common_search(self, item_name: str) -> None:
         data = {}
         
         if os.path.isfile(COMMON_SEARCH_DATA_FILE):
