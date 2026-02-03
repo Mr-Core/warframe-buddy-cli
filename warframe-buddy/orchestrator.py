@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import json
+from pathlib import Path
 from datetime import datetime
 from collections import Counter
 from config import HTML_FILE, PARSED_DATA_FILE
@@ -50,42 +51,38 @@ class DropOrchestrator:
         self.hex_bounty_report = None
         self.transient_report = None
 
-    def load_html(self, file_path):
+    def load_html(self, file_path: str | Path) -> BeautifulSoup:
         """Load HTML file"""
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return BeautifulSoup(f.read(), "html.parser")
-        except FileNotFoundError:
-            print(f'ERROR: HTML file "{file_path}" not found.')
-            print("Please fetch data first (run in Mode 1).")
-            exit(1)
+        
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f'HTML file "{file_path}" not found. '
+                "Please fetch data first (run in Mode 1)."
+            ) from e
 
-    def parse_all(self):
+    def parse_all(self) -> tuple[list, dict]:
         """Parse everything and store validation reports"""
-        print("Parsing Missions...")
+        # Parse Missions
         mission_drops, self.mission_report = self.mission_parser.parse()
 
-        print("Parsing Relics...")
+        # Parse Relics
         relic_drops, self.relic_report = self.relic_parser.parse()
 
-        print("Parsing Sorties...")
+        # Parse Sorties
         sortie_drops, self.sortie_report = self.sortie_parser.parse()
 
-        print("Parsing Bounties...")
-        print("  - Cetus bounties...")
+        # Parse Bounties
         cetus_bounty_drops, self.cetus_bounty_report = self.cetus_bounty_parser.parse()
-        print("  - Orb Vallis bounties...")
         solaris_bounty_drops, self.solaris_bounty_report = self.solaris_bounty_parser.parse()
-        print("  - Cambion Drift bounties...")
         deimos_bounty_drops, self.deimos_bounty_report = self.deimos_bounty_parser.parse()
-        print("  - Zariman bounties...")
         zariman_bounty_drops, self.zariman_bounty_report = (self.zariman_bounty_parser.parse())
-        print("  - Albrecht's Laboratories bounties...")
         entrati_lab_bounty_drops, self.entrati_lab_bounty_report = (self.entrati_lab_bounty_parser.parse())
-        print("  - Hex bounties...")
         hex_bounty_drops, self.hex_bounty_report = self.hex_bounty_parser.parse()
         
-        print("Parsing Dynamic Location Rewards...")
+        # Parse Dynamic Location Rewards
         transient_drops, self.transient_report = self.transient_parser.parse()
 
         self.all_drops = (
@@ -101,79 +98,23 @@ class DropOrchestrator:
             + transient_drops
         )
 
-        self._print_parse_summary(
-            mission_drops,
-            relic_drops,
-            sortie_drops,
-            cetus_bounty_drops,
-            solaris_bounty_drops,
-            deimos_bounty_drops,
-            zariman_bounty_drops,
-            entrati_lab_bounty_drops,
-            hex_bounty_drops,
-            transient_drops,
-        )
+        len_all_drops = {
+            'mission_drops': len(mission_drops),
+            'relic_drops': len(relic_drops),
+            'sortie_drops': len(sortie_drops),
+            'cetus_bounty_drops': len(cetus_bounty_drops),
+            'solaris_bounty_drops': len(solaris_bounty_drops),
+            'deimos_bounty_drops': len(deimos_bounty_drops),
+            'zariman_bounty_drops': len(zariman_bounty_drops),
+            'entrati_lab_bounty_drops': len(entrati_lab_bounty_drops),
+            'hex_bounty_drops': len(hex_bounty_drops),
+            'transient_drops': len(transient_drops),
+            'total_drops': len(self.all_drops)
+        }
 
-        return self.all_drops
+        return self.all_drops, len_all_drops
 
-    def _print_parse_summary(
-        self,
-        mission_drops,
-        relic_drops,
-        sortie_drops,
-        cetus_bounty_drops,
-        solaris_bounty_drops,
-        deimos_bounty_drops,
-        zariman_bounty_drops,
-        entrati_lab_bounty_drops,
-        hex_bounty_drops,
-        transient_drops,
-    ):
-        """Print parsing summary"""
-        total_drops_len = (
-            len(mission_drops)
-            + len(relic_drops)
-            + len(sortie_drops)
-            + len(cetus_bounty_drops)
-            + len(solaris_bounty_drops)
-            + len(deimos_bounty_drops)
-            + len(zariman_bounty_drops)
-            + len(entrati_lab_bounty_drops)
-            + len(hex_bounty_drops)
-            + len(transient_drops)
-        )
-
-        print(f"\nParse Complete:")
-        print(f"   Missions: {len(mission_drops)} drops")
-        print(f"   Relics: {len(relic_drops)} drops")
-        print(f"   Sorties: {len(sortie_drops)} drops")
-        print(f"   Cetus bounties: {len(cetus_bounty_drops)} drops")
-        print(f"   Orb Vallis bounties: {len(solaris_bounty_drops)} drops")
-        print(f"   Cambion Drift bounties: {len(deimos_bounty_drops)} drops")
-        print(f"   Zariman bounties: {len(zariman_bounty_drops)} drops")
-        print(f"   Albrecht's Laboratories bounties: {len(entrati_lab_bounty_drops)} drops")
-        print(f"   Hex bounties: {len(hex_bounty_drops)} drops")
-        print(f"   Dynamic Location Rewards: {len(transient_drops)} drops")
-        print(f"   Total: {total_drops_len} drops")
-
-    def print_validation_summary(self):
-        """
-        PRESENT high-level overview - Quick summary for users
-        Used by: Main flow to show 'is everything OK?'
-        """
-        report = self.get_validation_report()
-        overall = report["overall"]
-
-        print(f"\nVALIDATION SUMMARY:")
-        print(f"   Total drops: {overall['total_drops']}")
-        print(f"   Data integrity: {overall['data_integrity']:.1%}")
-        print(f"   Errors: {overall['error_count']}")
-        print(f"   Warnings: {overall['warning_count']}")
-
-        if overall["error_count"] > 0:
-            print("   CRITICAL: Errors found in data!")
-
-    def get_validation_report(self):
+    def get_validation_report(self) -> dict:
         """
         Get comprehensive validation report for ALL data
         Uses the reports already generated by parsers
@@ -256,10 +197,9 @@ class DropOrchestrator:
 
         return reports
 
-    def print_validation_details(self, max_errors=10):
+    def print_validation_details(self, max_errors: int = 10) -> None:
         """
-        PRESENT details - For debugging/fixing
-        Used by: When you need to see WHAT'S wrong
+        For debugging/fixing in CLI in DEV mode
         """
         report = self.get_validation_report()
 
@@ -373,7 +313,7 @@ class DropOrchestrator:
 
         # Show transient errors
         if report["transient"] and report["transient"]["errors"]:
-            print("\TRANSIENT ERRORS:")
+            print("\nTRANSIENT ERRORS:")
             for error in report["transient"]["errors"][:max_errors]:
                 print(
                     f"  Row {error['index']} -> Reason: {error['reason']} - Item: {error['item']}"
@@ -392,7 +332,7 @@ class DropOrchestrator:
 
         print("=" * 60)
 
-    def save_parsed_data(self):
+    def save_parsed_data(self) -> str:
         """Save parsed data to file"""
         data = {
             "source": "WarframeDropOrchestrator",
@@ -403,4 +343,4 @@ class DropOrchestrator:
         with open(PARSED_DATA_FILE, "w") as f:
             json.dump(data, f, indent=2)
 
-        print(f'\n✓ Saved {len(self.all_drops)} drops to "{PARSED_DATA_FILE}"')
+        return f'\n✓ Saved {len(self.all_drops)} drops to "{PARSED_DATA_FILE}"'
