@@ -4,18 +4,21 @@ from config import FETCH_URL, HTML_FILE
 from pathlib import Path
 
 
-def fetch_data():
+def fetch_data() -> tuple[bool, str | None]:
     """Fetch latest Warframe drop data"""
-    print(f'Fetching data from {FETCH_URL}...')
+    try:
+        response = requests.get(FETCH_URL)
+        response.raise_for_status()
+        
+        response.encoding = 'utf-8'
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        Path(HTML_FILE).parent.mkdir(parents=True, exist_ok=True)
 
-    response = requests.get(FETCH_URL)
-    response.encoding = 'utf-8'
+        with open(HTML_FILE, 'w', encoding='utf-8') as f:
+            f.write(soup.prettify())
 
-    soup = BeautifulSoup(response.text, 'html.parser')
+        return True, None
     
-    Path(HTML_FILE).parent.mkdir(parents=True, exist_ok=True)
-
-    with open(HTML_FILE, 'w', encoding='utf-8') as f:
-        f.write(soup.prettify())
-    
-    return True
+    except Exception as e:
+        return False, str(e)
