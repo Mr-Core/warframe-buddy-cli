@@ -1,8 +1,6 @@
 # services/warframe_api.py
 import aiohttp
-import asyncio
 import time
-from typing import Dict, List, Optional
 import logging
 
 
@@ -28,7 +26,7 @@ class WarframeAPI:
             )
         return self.session
 
-    async def _cached_get(self, endpoint: str) -> Dict:
+    async def _cached_get(self, endpoint: str) -> dict:
         """Get data with simple TTL caching"""
         now = time.time()
 
