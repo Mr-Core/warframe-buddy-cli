@@ -40,26 +40,55 @@ def cli():
         if not DEVELOPMENT_MODE:
             # Production: Fetch new data
             from services.fetch_data import fetch_data
+            
             print('\nFetching latest data...')
-            fetch_data()
-            print('✓ Data fetched successfully')
+            fetch_success, fetch_error = fetch_data()
+            
+            if fetch_success:
+                print('✓ Data fetched successfully')
+            else:
+                print('✗ Error fetching latest data.')
+                if fetch_error:
+                    print(f'  ↳ {fetch_error}')
+                sys.exit(1)
         else:
             print('DEVELOPMENT MODE IS ACTIVE! Skipping fetching new data.')
         
         # Parse everything
         print('\nParsing data...')
         orchestrator = DropOrchestrator()
-        all_drops = orchestrator.parse_all()
+        all_drops, len_all_drops = orchestrator.parse_all()
         
-        # Show validation summary
-        orchestrator.print_validation_summary()
-        
+        # Print parse details
+        print(f"\nParsing completed:")
+        print(f"   Missions: {len_all_drops['mission_drops']} drops")
+        print(f"   Relics: {len_all_drops['relic_drops']} drops")
+        print(f"   Sorties: {len_all_drops['sortie_drops']} drops")
+        print(f"   Cetus bounties: {len_all_drops['cetus_bounty_drops']} drops")
+        print(f"   Orb Vallis bounties: {len_all_drops['solaris_bounty_drops']} drops")
+        print(f"   Cambion Drift bounties: {len_all_drops['deimos_bounty_drops']} drops")
+        print(f"   Zariman bounties: {len_all_drops['zariman_bounty_drops']} drops")
+        print(f"   Albrecht's Laboratories bounties: {len_all_drops['entrati_lab_bounty_drops']} drops")
+        print(f"   Hex bounties: {len_all_drops['hex_bounty_drops']} drops")
+        print(f"   Dynamic Location Rewards: {len_all_drops['transient_drops']} drops")
+        print(f"\n   Total drops: {len_all_drops['total_drops']} drops")
+         
         # Generate a validation report
         report = orchestrator.get_validation_report()
         
+        # Show validation summary
+        overall = report["overall"]
+
+        print(f"\nVALIDATION SUMMARY:")
+        print(f"   Total drops: {overall['total_drops']}")
+        print(f"   Data integrity: {overall['data_integrity']:.1%}")
+        print(f"   Errors: {overall['error_count']}")
+        print(f"   Warnings: {overall['warning_count']}")
+
         # Check if validation report contains any errors
         if report['overall']['error_count'] > 0 or report['overall']['warning_count'] > 0:
             error_trigger = True
+            print("   CRITICAL: Errors found in data!")
         
         if error_trigger:
             if not DEVELOPMENT_MODE:
@@ -75,19 +104,24 @@ def cli():
         
         # Ask to save parsed data
         save_parsed = input('\nSave parsed data to file? (y/n): ').lower()
+        
         if save_parsed == 'y':
-            orchestrator.save_parsed_data()
+            save_response = orchestrator.save_parsed_data()
+            print(save_response)
         else:
             print('\nSkipping saving parsed data to file.')
         
         # Create search engine with fresh data
         print('\nCreating search indexes...')
         search_engine = WarframeSearchEngine()
-        search_engine.create_indexes_from_drops(all_drops)
+        create_indexes_reponse = search_engine.create_indexes_from_drops(all_drops)
+        
+        print(f'✓ Indexed {len(all_drops)} drops')
+        print(create_indexes_reponse)
         
         # Always save indexes in Mode 1
-        search_engine.save_indexes()
-        print('✓ Indexes saved for future searches')
+        save_indexes_response = search_engine.save_indexes()
+        print(save_indexes_response)
         
         # Show index status
         status = search_engine.get_index_status()
@@ -108,13 +142,15 @@ def cli():
         print('\nLoading search indexes...')
         search_engine = WarframeSearchEngine()
         
-        try:
-            search_engine.load_indexes()  # Try to load existing indexes
-            print('✓ Indexes loaded successfully')
+        # Load existing indexes
+        load_index_success, load_index_response = search_engine.load_indexes()
+        
+        if load_index_success:
+            print(load_index_response)
+            print('\n✓ Indexes loaded successfully')
             input('\nPress any key to continue...')
-        except FileNotFoundError:
-            print('✗ No index file found!')
-            print('\nPlease run Mode 1 first to create indexes.')
+        else:
+            print(load_index_response)
             sys.exit(1)
     
     elif mode == '3':
@@ -131,7 +167,7 @@ def cli():
     interactive_search(search_engine)
 
 
-def interactive_search(search_engine):
+def interactive_search(search_engine) -> None:
     """Interactive search interface"""
     while True:
         clear_screen()
@@ -301,7 +337,7 @@ def interactive_search(search_engine):
                 display_summary(summary)
 
 
-def display_results(results, item_name, filter):
+def display_results(results: list, item_name: str | None, filter: str) -> None:
     """Display search results nicely"""
     clear_screen()
     
@@ -383,7 +419,7 @@ def display_results(results, item_name, filter):
     input('\nPress any key to continue...')
 
 
-def display_summary(summary):
+def display_summary(summary: dict) -> None:
     """Display item summary"""
     clear_screen()
     
