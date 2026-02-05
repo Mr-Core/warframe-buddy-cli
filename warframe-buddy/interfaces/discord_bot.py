@@ -1,6 +1,8 @@
 import sys, os
+from venv import logger  # TODO Implement properly
 import discord
 from discord.ext import commands
+from typing import Optional
 import asyncio
 import textwrap
 from datetime import datetime, timezone, timedelta
@@ -25,7 +27,7 @@ class WarframeBuddyDiscordBot:
             command_prefix=COMMAND_PREFIX, intents=intents, case_insensitive=True
         )
 
-        self.search_engine = None
+        self.search_engine: Optional[WarframeSearchEngine] = None
 
         self.setup_error_handling()
         self.setup_commands()
@@ -142,13 +144,13 @@ class WarframeBuddyDiscordBot:
 
                     embed.add_field(
                         name="Usage",
-                        value=f"`{prefix}{ctx.command} {' '.join(param_list)}`",
+                        value=f"`{COMMAND_PREFIX}{ctx.command} {' '.join(param_list)}`",
                         inline=False,
                     )
 
                 embed.add_field(
                     name="Example",
-                    value=f'`{prefix}{ctx.command} "item name"`',
+                    value=f'`{COMMAND_PREFIX}{ctx.command} "item name"`',
                     inline=False,
                 )
 
@@ -165,6 +167,12 @@ class WarframeBuddyDiscordBot:
         @self.bot.command(name="search", help="Search for item drop locations")
         async def search(ctx, *, search_query: str | None = None):
             """Search for an item"""
+            if not self.search_engine:
+                await ctx.send(
+                    f"⚠️ Search engine not loaded. Use `{COMMAND_PREFIX}load` first."
+                )
+                return
+
             if not search_query:
                 await ctx.send(f'❌ Please specify: `{COMMAND_PREFIX}search "forma"`')
                 return
@@ -788,6 +796,8 @@ class WarframeBuddyDiscordBot:
         if len(embed.fields) > 0:
             field = embed.fields[0]
             current_value = field.value
+            if current_value is None:
+                current_value = ""
 
             # Replace navigation text
             nav_texts = [
@@ -935,7 +945,7 @@ class WarframeBuddyDiscordBot:
 
     def _get_relic_tiers_for_item(self, item_name: str) -> List[str]:
         """Extract relic tiers for an item - FIXED VERSION"""
-        if not self.search_engine:
+        if self.search_engine is None:
             return []
 
         results = self.search_engine.search_item(item_name)
@@ -973,7 +983,7 @@ class WarframeBuddyDiscordBot:
                 "nightwave": nightwave or {},
             }
         except Exception as e:
-            logger.error(f"Failed to fetch game state: {e}")
+            logger.error(f"Failed to fetch game state: {e}")  # TODO Implement logging properly
             return {}
 
     def _build_best_response(
